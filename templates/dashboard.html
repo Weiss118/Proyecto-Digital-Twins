@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - Gemelo Digital PWA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-brand">
+            Gemelos Digitales <span class="nav-brand-tag">PWA</span>
+        </div>
+        <div class="nav-user">
+            <span>{{ nombre }} <code>({{ numero_empleado }})</code></span>
+            <span class="role-badge role-{{ rol|lower }}">{{ rol }}</span>
+            <a href="{{ url_for('logout') }}" class="btn-logout">Cerrar Sesión</a>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <h1 class="dashboard-title">Panel Principal</h1>
+        <p class="dashboard-subtitle">Bienvenido al sistema de monitoreo en tiempo real. Selecciona una opción según tus permisos de acceso.</p>
+
+        <!-- SECCIÓN OPERADOR (Común a todos los rangos) -->
+        <section class="module-card operador">
+            <h3>Visualización y Monitoreo</h3>
+            <p>Acceso a vistas en tiempo real y consulta de datos históricos del gemelo digital.</p>
+            <div class="action-grid">
+                <button class="btn-action primary-blue">Ver Gemelo Digital</button>
+                <button class="btn-action">Consultar Históricos</button>
+                <button class="btn-action">Ver Alertas Activas</button>
+            </div>
+        </section>
+
+        <!-- SECCIÓN TÉCNICO (Solo visible para Técnico y Supervisor) -->
+        {% if rol in ['Tecnico', 'Supervisor'] %}
+        <section class="module-card tecnico">
+            <h3>Configuración Técnica y Líneas de Trabajo</h3>
+            <p>Herramientas para manipulación de parámetros de la línea, adición de activos y generación de reportes.</p>
+            <div class="action-grid">
+                <button class="btn-action warning-amber">Ajustar Configuración de Línea</button>
+                <button class="btn-action">Añadir Nueva Línea de Trabajo</button>
+                <button class="btn-action">Generar Reporte de Telemetría</button>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- SECCIÓN SUPERVISOR / ALTO RANGO (Exclusiva) -->
+        {% if rol == 'Supervisor' %}
+        <section class="module-card supervisor">
+            <h3>Administración de Personal y Roles (RBAC)</h3>
+            <p>Gestión de usuarios del sistema: alta de personal, modificación de rangos y bajas de acceso.</p>
+            <div class="action-grid">
+                <button class="btn-action success-emerald">Dar de Alta Usuario</button>
+                <button class="btn-action">Modificar Permisos / Elevar Rango</button>
+                <button class="btn-action danger-red">Dar de Baja Usuario</button>
+            </div>
+        </section>
+        {% endif %}
+    </main>
+</body>
+</html>

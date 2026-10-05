@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio de Sesión - Gemelo Digital PWA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <span class="logo-badge">Sprint 0 • PWA</span>
+                <h2>Gemelos Digitales</h2>
+                <p>Monitoreo Industrial & Manufactura</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="form-group">
+                    <label for="numero_empleado">Número de Empleado</label>
+                    <input type="text" id="numero_empleado" name="numero_empleado" required placeholder="Ej. 1001" autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" name="password" required placeholder="••••••••">
+                </div>
+
+                <button type="submit" class="btn-primary">Iniciar Sesión</button>
+            </form>
+
+            <div class="demo-box">
+                <h4>Usuarios de Prueba (Sprint 0)</h4>
+                <ul>
+                    <li>• <strong>Operador:</strong> <code>1001</code> / <code>op123</code></li>
+                    <li>• <strong>Técnico:</strong> <code>2001</code> / <code>tec123</code></li>
+                    <li>• <strong>Supervisor:</strong> <code>3001</code> / <code>admin123</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
