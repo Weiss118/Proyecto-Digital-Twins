@@ -1,63 +1,639 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Gemelo Digital PWA</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <header class="navbar">
-        <div class="nav-brand">
-            Gemelos Digitales <span class="nav-brand-tag">PWA</span>
+    <!DOCTYPE html>
+    <html lang="es">
+
+    <head>
+
+        <meta charset="UTF-8">
+
+        <meta name="viewport"
+            content="width=device-width, initial-scale=1.0">
+
+        <title>Dashboard - Gemelo Digital</title>
+
+        <link rel="manifest"
+            href="{{ url_for('static', filename='manifest.json') }}">
+
+        <link rel="stylesheet"
+            href="{{ url_for('static', filename='css/style.css') }}">
+
+    </head>
+
+
+    <body>
+
+    <nav class="navbar">
+
+        <div class="navbar-title">
+            Gemelo Digital
         </div>
-        <div class="nav-user">
-            <span>{{ nombre }} <code>({{ numero_empleado }})</code></span>
-            <span class="role-badge role-{{ rol|lower }}">{{ rol }}</span>
-            <a href="{{ url_for('logout') }}" class="btn-logout">Cerrar Sesión</a>
+
+        <div class="navbar-user">
+
+            <span>
+                {{ nombre }}
+            </span>
+
+            <span>
+                {{ numero_empleado }}
+            </span>
+
+            <span class="role-badge">
+                {{ rol }}
+            </span>
+
+            <a href="{{ url_for('logout') }}"
+            class="logout-btn">
+                Cerrar sesión
+            </a>
+
         </div>
-    </header>
+
+    </nav>
+
 
     <main class="dashboard-container">
-        <h1 class="dashboard-title">Panel Principal</h1>
-        <p class="dashboard-subtitle">Bienvenido al sistema de monitoreo en tiempo real. Selecciona una opción según tus permisos de acceso.</p>
 
-        <!-- SECCIÓN OPERADOR (Común a todos los rangos) -->
-        <section class="module-card operador">
-            <h3>Visualización y Monitoreo</h3>
-            <p>Acceso a vistas en tiempo real y consulta de datos históricos del gemelo digital.</p>
-            <div class="action-grid">
-                <button class="btn-action primary-blue">Ver Gemelo Digital</button>
-                <button class="btn-action">Consultar Históricos</button>
-                <button class="btn-action">Ver Alertas Activas</button>
+        <h1>PRUEBA GEMELO DIGITAL</h1>
+
+        <p class="dashboard-subtitle">
+            Sistema virtual de monitoreo y simulación industrial
+        </p>
+
+
+        <!-- ================================================= -->
+        <!-- GEMELO DIGITAL -->
+        <!-- ================================================= -->
+
+        <section class="dashboard-section">
+
+            <h2>Visualización y Monitoreo</h2>
+
+            <div class="cards-grid">
+
+                <div class="dashboard-card">
+
+                    <h3>Temperatura</h3>
+
+                    <div class="value"
+                        id="temperatura">
+                        -- °C
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Presión</h3>
+
+                    <div class="value"
+                        id="presion">
+                        -- bar
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Velocidad</h3>
+
+                    <div class="value"
+                        id="velocidad">
+                        -- %
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Nivel</h3>
+
+                    <div class="value"
+                        id="nivel">
+                        -- %
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Estado</h3>
+
+                    <div class="value"
+                        id="estado">
+                        --
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Producción</h3>
+
+                    <div class="value"
+                        id="produccion">
+                        --
+                    </div>
+
+                    <p>
+                        unidades
+                    </p>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Eficiencia</h3>
+
+                    <div class="value"
+                        id="eficiencia">
+                        -- %
+                    </div>
+
+                </div>
+
             </div>
+
         </section>
 
-        <!-- SECCIÓN TÉCNICO (Solo visible para Técnico y Supervisor) -->
-        {% if rol in ['Tecnico', 'Supervisor'] %}
-        <section class="module-card tecnico">
-            <h3>Configuración Técnica y Líneas de Trabajo</h3>
-            <p>Herramientas para manipulación de parámetros de la línea, adición de activos y generación de reportes.</p>
-            <div class="action-grid">
-                <button class="btn-action warning-amber">Ajustar Configuración de Línea</button>
-                <button class="btn-action">Añadir Nueva Línea de Trabajo</button>
-                <button class="btn-action">Generar Reporte de Telemetría</button>
+
+        <!-- ================================================= -->
+        <!-- ALERTAS -->
+        <!-- ================================================= -->
+
+        <section class="dashboard-section">
+
+            <h2>Alertas Activas</h2>
+
+            <div id="alertas"
+                class="alertas-container">
+
+                Cargando alertas...
+
             </div>
+
         </section>
+
+
+        <!-- ================================================= -->
+        <!-- ACTIVOS -->
+        <!-- ================================================= -->
+
+        <section class="dashboard-section">
+
+            <h2>Activos Virtuales</h2>
+
+            <div id="activos"
+                class="activos-container">
+
+                Cargando activos...
+
+            </div>
+
+        </section>
+
+
+        <!-- ================================================= -->
+        <!-- TÉCNICO Y SUPERVISOR -->
+        <!-- ================================================= -->
+
+        {% if rol == "Tecnico" or rol == "Supervisor" %}
+
+        <section class="dashboard-section">
+
+            <h2>Control del Sistema</h2>
+
+            <div class="action-buttons">
+
+                <button onclick="ejecutarFuncion('encender')">
+                    Encender sistema
+                </button>
+
+                <button onclick="ejecutarFuncion('detener')">
+                    Detener sistema
+                </button>
+
+                <button onclick="ejecutarFuncion('emergencia')">
+                    Paro de emergencia
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <section class="dashboard-section">
+
+            <h2>Configuración técnica</h2>
+
+            <div class="configuration-card">
+
+                <p>
+                    <strong>Línea:</strong>
+                    <span id="nombre-linea">--</span>
+                </p>
+
+                <p>
+                    <strong>Velocidad configurada:</strong>
+                    <span id="velocidad-config">--</span>
+                </p>
+
+                <p>
+                    <strong>Temperatura configurada:</strong>
+                    <span id="temperatura-config">--</span>
+                </p>
+
+                <p>
+                    <strong>Presión configurada:</strong>
+                    <span id="presion-config">--</span>
+                </p>
+
+            </div>
+
+        </section>
+
         {% endif %}
 
-        <!-- SECCIÓN SUPERVISOR / ALTO RANGO (Exclusiva) -->
-        {% if rol == 'Supervisor' %}
-        <section class="module-card supervisor">
-            <h3>Administración de Personal y Roles (RBAC)</h3>
-            <p>Gestión de usuarios del sistema: alta de personal, modificación de rangos y bajas de acceso.</p>
-            <div class="action-grid">
-                <button class="btn-action success-emerald">Dar de Alta Usuario</button>
-                <button class="btn-action">Modificar Permisos / Elevar Rango</button>
-                <button class="btn-action danger-red">Dar de Baja Usuario</button>
+
+        <!-- ================================================= -->
+        <!-- SUPERVISOR -->
+        <!-- ================================================= -->
+
+        {% if rol == "Supervisor" %}
+
+        <section class="dashboard-section">
+
+            <h2>Administración</h2>
+
+            <div class="cards-grid">
+
+                <div class="dashboard-card">
+
+                    <h3>Gestión de usuarios</h3>
+
+                    <p>
+                        Administración de usuarios y permisos.
+                    </p>
+
+                </div>
+
+
+                <div class="dashboard-card">
+
+                    <h3>Control de roles</h3>
+
+                    <p>
+                        Supervisor con acceso a funciones administrativas.
+                    </p>
+
+                </div>
+
             </div>
+
         </section>
+
         {% endif %}
+
     </main>
-</body>
-</html>
+
+
+    <!-- ===================================================== -->
+    <!-- JAVASCRIPT -->
+    <!-- ===================================================== -->
+
+    <script>
+
+        // -----------------------------------------------------
+        // ACTUALIZAR VARIABLES
+        // -----------------------------------------------------
+
+        async function actualizarVariables() {
+
+            try {
+
+                const respuesta =
+                    await fetch("/api/variables");
+
+                const datos =
+                    await respuesta.json();
+
+                document.getElementById("temperatura").textContent =
+                    datos.temperatura + " °C";
+
+                document.getElementById("presion").textContent =
+                    datos.presion + " bar";
+
+                document.getElementById("velocidad").textContent =
+                    datos.velocidad + " %";
+
+                document.getElementById("nivel").textContent =
+                    datos.nivel + " %";
+
+            } catch (error) {
+
+                console.error(
+                    "Error obteniendo variables:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // ACTUALIZAR ESTADO
+        // -----------------------------------------------------
+
+        async function actualizarEstado() {
+
+            try {
+
+                const respuesta =
+                    await fetch("/api/estado");
+
+                const datos =
+                    await respuesta.json();
+
+                document.getElementById("estado").textContent =
+                    datos.estado;
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // ACTUALIZAR MÉTRICAS
+        // -----------------------------------------------------
+
+        async function actualizarMetricas() {
+
+            try {
+
+                const respuesta =
+                    await fetch("/api/metricas");
+
+                const datos =
+                    await respuesta.json();
+
+                document.getElementById("produccion").textContent =
+                    datos.produccion;
+
+                document.getElementById("eficiencia").textContent =
+                    datos.eficiencia + " %";
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // ACTUALIZAR ALERTAS
+        // -----------------------------------------------------
+
+        async function actualizarAlertas() {
+
+            try {
+
+                const respuesta =
+                    await fetch("/api/alertas");
+
+                const datos =
+                    await respuesta.json();
+
+                const contenedor =
+                    document.getElementById("alertas");
+
+                contenedor.innerHTML = "";
+
+                datos.alertas.forEach(function(alerta) {
+
+                    const elemento =
+                        document.createElement("div");
+
+                    elemento.className = "alerta-item";
+
+                    elemento.textContent = alerta;
+
+                    contenedor.appendChild(elemento);
+
+                });
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // ACTUALIZAR ACTIVOS
+        // -----------------------------------------------------
+
+        async function actualizarActivos() {
+
+            try {
+
+                const respuesta =
+                    await fetch("/api/activos");
+
+                const activos =
+                    await respuesta.json();
+
+                const contenedor =
+                    document.getElementById("activos");
+
+                contenedor.innerHTML = "";
+
+                activos.forEach(function(activo) {
+
+                    const elemento =
+                        document.createElement("div");
+
+                    elemento.className = "activo-item";
+
+                    elemento.innerHTML =
+                        "<strong>" +
+                        activo.nombre +
+                        "</strong><br>" +
+                        activo.tipo +
+                        "<br>" +
+                        "Estado: " +
+                        activo.estado;
+
+                    contenedor.appendChild(elemento);
+
+                });
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // CONFIGURACIÓN
+        // -----------------------------------------------------
+
+        async function actualizarConfiguracion() {
+
+            try {
+
+                const respuesta =
+                    await fetch("/api/configuracion");
+
+                const datos =
+                    await respuesta.json();
+
+                const linea =
+                    document.getElementById("nombre-linea");
+
+                if (linea) {
+
+                    linea.textContent =
+                        datos.nombre_linea;
+
+                    document.getElementById(
+                        "velocidad-config"
+                    ).textContent =
+                        datos.velocidad + " %";
+
+                    document.getElementById(
+                        "temperatura-config"
+                    ).textContent =
+                        datos.temperatura + " °C";
+
+                    document.getElementById(
+                        "presion-config"
+                    ).textContent =
+                        datos.presion + " bar";
+                }
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // FUNCIONES DEL SISTEMA
+        // -----------------------------------------------------
+
+        async function ejecutarFuncion(accion) {
+
+            try {
+
+                const respuesta =
+                    await fetch(
+                        "/api/funciones/" + accion,
+                        {
+                            method: "POST"
+                        }
+                    );
+
+                const datos =
+                    await respuesta.json();
+
+                if (datos.error) {
+
+                    alert(datos.error);
+
+                    return;
+                }
+
+                alert(datos.mensaje);
+
+                actualizarEstado();
+
+            } catch (error) {
+
+                console.error(error);
+
+                alert(
+                    "No se pudo ejecutar la acción."
+                );
+
+            }
+
+        }
+
+
+        // -----------------------------------------------------
+        // ACTUALIZACIÓN AUTOMÁTICA
+        // -----------------------------------------------------
+
+        function actualizarDashboard() {
+
+            actualizarVariables();
+            actualizarEstado();
+            actualizarMetricas();
+            actualizarAlertas();
+            actualizarActivos();
+            actualizarConfiguracion();
+
+        }
+
+
+        // Primera actualización
+
+        actualizarDashboard();
+
+
+        // Actualización cada 2 segundos
+
+        setInterval(
+            actualizarDashboard,
+            2000
+        );
+
+    </script>
+
+
+    <!-- ===================================================== -->
+    <!-- SERVICE WORKER -->
+    <!-- ===================================================== -->
+
+    <script>
+
+        if ("serviceWorker" in navigator) {
+
+            window.addEventListener(
+                "load",
+                function() {
+
+                    navigator.serviceWorker.register(
+                        "{{ url_for('static', filename='service-worker.js') }}"
+                    );
+
+                }
+            );
+
+        }
+
+    </script>
+
+    </body>
+
+    </html>

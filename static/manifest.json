@@ -1,8 +1,10 @@
 {
-  "name": "Gemelo Digital PWA",
-  "short_name": "GemeloPWA",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#1e3c72",
-  "theme_color": "#1e3c72"
+    "name": "Gemelo Digital PWA",
+    "short_name": "GemeloPWA",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#1e3c72",
+    "theme_color": "#1e3c72",
+    "description": "Sistema virtual de monitoreo y simulación industrial",
+    "lang": "es"
 }

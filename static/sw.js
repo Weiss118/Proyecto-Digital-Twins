@@ -1,8 +1,37 @@
-// Service Worker mínimo para requerimiento PWA (Sprint 0)
-self.addEventListener('install', (e) => {
-  console.log('[Service Worker] Instalado');
+// Service Worker para la PWA del Gemelo Digital
+
+self.addEventListener("install", function(event) {
+
+    console.log("[Service Worker] Instalado");
+
+    self.skipWaiting();
+
 });
 
-self.addEventListener('fetch', (e) => {
-  e.respondWith(fetch(e.request));
+
+self.addEventListener("activate", function(event) {
+
+    console.log("[Service Worker] Activado");
+
+});
+
+
+self.addEventListener("fetch", function(event) {
+
+    event.respondWith(
+        fetch(event.request)
+            .catch(function() {
+
+                return new Response(
+                    "Sin conexión con el servidor.",
+                    {
+                        headers: {
+                            "Content-Type": "text/plain"
+                        }
+                    }
+                );
+
+            })
+    );
+
 });
