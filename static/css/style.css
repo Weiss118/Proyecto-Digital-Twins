@@ -1,6 +1,4 @@
-/* =========================================================
-ESTILOS GENERALES Y PALETA DE COLORES (AZUL INDUSTRIAL)
-========================================================= */
+
 
 :root {
   --bg-main: #f8fafc;
@@ -30,9 +28,9 @@ body {
   min-height: 100vh;
 }
 
-/* =========================================================
+/* 
 PANTALLA DE INICIO DE SESIÓN Y REGISTRO
-========================================================= */
+ */
 
 .login-wrapper {
   display: flex;
@@ -194,9 +192,9 @@ PANTALLA DE INICIO DE SESIÓN Y REGISTRO
   color: #0f172a;
 }
 
-/* =========================================================
+/* 
 PANEL PRINCIPAL / DASHBOARD
-========================================================= */
+*/
 
 .navbar {
   background-color: var(--navbar-bg);
@@ -289,9 +287,9 @@ PANEL PRINCIPAL / DASHBOARD
   margin-bottom: 2rem;
 }
 
-/* =========================================================
+/*
 TARJETAS
-========================================================= */
+*/
 
 .module-card {
   background: var(--card-bg);
@@ -332,9 +330,8 @@ TARJETAS
   margin-bottom: 1.25rem;
 }
 
-/* =========================================================
-BOTONES
-========================================================= */
+/*
+BOTONES*/
 
 .action-grid {
   display: flex;
@@ -402,9 +399,9 @@ BOTONES
   background-color: #dc2626;
 }
 
-/* =========================================================
+/* 
 GEMELO DIGITAL - MONITOREO
-========================================================= */
+*/
 
 .dashboard-section {
   margin-bottom: 30px;
@@ -449,9 +446,9 @@ GEMELO DIGITAL - MONITOREO
   color: #2563eb;
 }
 
-/* =========================================================
+/* 
 ALERTAS
-========================================================= */
+ */
 
 .alertas-container {
   margin-top: 15px;
@@ -466,9 +463,9 @@ ALERTAS
   color: #334155;
 }
 
-/* =========================================================
+/* 
 ACTIVOS VIRTUALES
-========================================================= */
+ */
 
 .activos-container {
   display: grid;
@@ -490,9 +487,9 @@ ACTIVOS VIRTUALES
   color: #0f172a;
 }
 
-/* =========================================================
+/* 
 BOTONES DE CONTROL DEL GEMELO
-========================================================= */
+*/
 
 .action-buttons {
   display: flex;
@@ -533,9 +530,9 @@ BOTONES DE CONTROL DEL GEMELO
   background-color: #dc2626;
 }
 
-/* =========================================================
+/* 
 CONFIGURACIÓN
-========================================================= */
+*/
 
 .configuration-card {
   background: var(--card-bg);
@@ -554,9 +551,9 @@ CONFIGURACIÓN
   color: #0f172a;
 }
 
-/* =========================================================
+/* 
 RESPONSIVE
-========================================================= */
+*/
 
 @media (max-width: 700px) {
   .navbar {

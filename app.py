@@ -6,6 +6,8 @@ import time
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from equipos import EQUIPOS
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "clave-secreta-gemelo-digital-dev")
 
@@ -128,9 +130,7 @@ def init_db():
 init_db()
 
 
-# ============================================================
 # SIMULACIÓN DEL GEMELO DIGITAL
-# ============================================================
 
 simulacion = {
     "temperatura": 70.0,
@@ -160,9 +160,54 @@ def actualizar_simulacion():
         simulacion["eficiencia"] = random.uniform(88, 97)
 
 
-# ============================================================
+# SIMULACIÓN DE LOS EQUIPOS (definidos en equipos.py)
+
+valores_equipos = {}
+control_equipos = {"ultimo_update": time.time()}
+
+
+def inicializar_equipos():
+    for equipo in EQUIPOS:
+        for variable in equipo["variables"]:
+            if "calculo" in variable or variable.get("tipo") == "texto":
+                continue
+
+            clave = f'{equipo["id"]}.{variable["clave"]}'
+
+            if variable.get("tipo") == "contador":
+                valores_equipos[clave] = float(variable["inicio"])
+            else:
+                valores_equipos[clave] = random.uniform(variable["min"], variable["max"])
+
+
+def actualizar_equipos():
+    ahora = time.time()
+    if ahora - control_equipos["ultimo_update"] < 1:
+        return
+    control_equipos["ultimo_update"] = ahora
+
+    operando = simulacion["estado"] == "Operando"
+
+    for equipo in EQUIPOS:
+        for variable in equipo["variables"]:
+            if "calculo" in variable or variable.get("tipo") == "texto":
+                continue
+
+            clave = f'{equipo["id"]}.{variable["clave"]}'
+
+            if variable.get("tipo") == "contador":
+                if operando:
+                    minimo, maximo = variable["incremento"]
+                    valores_equipos[clave] += random.uniform(minimo, maximo)
+            else:
+                rango = variable["max"] - variable["min"]
+                nuevo = valores_equipos[clave] + random.uniform(-0.05, 0.05) * rango
+                valores_equipos[clave] = max(variable["min"], min(variable["max"], nuevo))
+
+
+inicializar_equipos()
+
 # RUTAS DE AUTENTICACIÓN Y REGISTRO
-# ============================================================
 
 @app.route("/")
 def inicio():
@@ -261,10 +306,58 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-
-# ============================================================
 # RUTAS API REST
-# ============================================================
+
+@app.route("/api/equipos")
+def api_equipos():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    actualizar_simulacion()
+    actualizar_equipos()
+
+    resultado = []
+
+    for equipo in EQUIPOS:
+        # Primero los valores base de este equipo
+        valores = {}
+        for variable in equipo["variables"]:
+            if "calculo" in variable or variable.get("tipo") == "texto":
+                continue
+            valores[variable["clave"]] = valores_equipos[f'{equipo["id"]}.{variable["clave"]}']
+
+        # Después los valores calculados a partir de los anteriores
+        for variable in equipo["variables"]:
+            if "calculo" in variable:
+                valores[variable["clave"]] = variable["calculo"](valores)
+
+        # Armar la respuesta respetando el orden definido en equipos.py
+        variables_salida = []
+        for variable in equipo["variables"]:
+            if variable.get("tipo") == "texto":
+                valor = variable["valor"]
+            else:
+                decimales = variable.get("decimales", 1)
+                valor = round(valores[variable["clave"]], decimales)
+                if decimales == 0:
+                    valor = int(valor)
+
+            variables_salida.append({
+                "etiqueta": variable["etiqueta"],
+                "valor": valor,
+                "unidad": variable["unidad"]
+            })
+
+        resultado.append({
+            "id": equipo["id"],
+            "nombre": equipo["nombre"],
+            "tipo": equipo["tipo"],
+            "estado": simulacion["estado"],
+            "variables": variables_salida
+        })
+
+    return jsonify(resultado)
+
 
 @app.route("/api/variables")
 def api_variables():

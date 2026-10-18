@@ -1,639 +1,470 @@
-    <!DOCTYPE html>
-    <html lang="es">
+<!DOCTYPE html>
+<html lang="es">
 
-    <head>
+<head>
 
-        <meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-        <meta name="viewport"
-            content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
 
-        <title>Dashboard - Gemelo Digital</title>
+    <title>Dashboard - Gemelo Digital</title>
 
-        <link rel="manifest"
-            href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="manifest"
+        href="{{ url_for('static', filename='manifest.json') }}">
 
-        <link rel="stylesheet"
-            href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}">
 
-    </head>
+    <style>
+
+        /* Equipos: reutiliza el diseño de recuadros del dashboard
+           (cards-grid, dashboard-card, value) */
+
+        .equipo-bloque {
+            margin-bottom: 32px;
+        }
+
+        .equipo-titulo {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 4px 12px;
+            padding-left: 12px;
+            border-left: 4px solid #2563eb;
+        }
+
+        .equipo-titulo h3 {
+            font-size: 1.15rem;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .equipo-tipo {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .equipo-bloque .cards-grid {
+            margin-top: 15px;
+        }
+
+        .dashboard-card .value-texto {
+            font-size: 20px;
+        }
+
+    </style>
+
+</head>
 
 
-    <body>
+<body>
 
-    <nav class="navbar">
+<nav class="navbar">
 
-        <div class="navbar-title">
-            Gemelo Digital
+    <div class="navbar-title">
+        Gemelo Digital
+    </div>
+
+    <div class="navbar-user">
+
+        <span>
+            {{ nombre }}
+        </span>
+
+        <span>
+            {{ numero_empleado }}
+        </span>
+
+        <span class="role-badge">
+            {{ rol }}
+        </span>
+
+        <a href="{{ url_for('logout') }}"
+        class="logout-btn">
+            Cerrar sesión
+        </a>
+
+    </div>
+
+</nav>
+
+
+<main class="dashboard-container">
+
+    <h1>PRUEBA GEMELO DIGITAL</h1>
+
+    <p class="dashboard-subtitle">
+        Sistema virtual de monitoreo y simulación industrial
+    </p>
+
+
+    <section class="dashboard-section">
+
+        <h2>Visualización y Monitoreo</h2>
+
+        <div id="equipos"
+            class="equipos-lista">
+
+            Cargando equipos...
+
         </div>
 
-        <div class="navbar-user">
+    </section>
 
-            <span>
-                {{ nombre }}
-            </span>
 
-            <span>
-                {{ numero_empleado }}
-            </span>
+    {% if rol == "Tecnico" or rol == "Supervisor" %}
 
-            <span class="role-badge">
-                {{ rol }}
-            </span>
+    <section class="dashboard-section">
 
-            <a href="{{ url_for('logout') }}"
-            class="logout-btn">
-                Cerrar sesión
-            </a>
+        <h2>Control del Sistema</h2>
+
+        <div class="action-buttons">
+
+            <button onclick="ejecutarFuncion('encender')">
+                Encender sistema
+            </button>
+
+            <button onclick="ejecutarFuncion('detener')">
+                Detener sistema
+            </button>
+
+            <button onclick="ejecutarFuncion('emergencia')">
+                Paro de emergencia
+            </button>
 
         </div>
 
-    </nav>
+    </section>
 
 
-    <main class="dashboard-container">
+    <section class="dashboard-section">
 
-        <h1>PRUEBA GEMELO DIGITAL</h1>
+        <h2>Configuración técnica</h2>
 
-        <p class="dashboard-subtitle">
-            Sistema virtual de monitoreo y simulación industrial
-        </p>
+        <div class="configuration-card">
 
+            <p>
+                <strong>Línea:</strong>
+                <span id="nombre-linea">--</span>
+            </p>
 
-        <!-- ================================================= -->
-        <!-- GEMELO DIGITAL -->
-        <!-- ================================================= -->
+            <p>
+                <strong>Velocidad configurada:</strong>
+                <span id="velocidad-config">--</span>
+            </p>
 
-        <section class="dashboard-section">
+            <p>
+                <strong>Temperatura configurada:</strong>
+                <span id="temperatura-config">--</span>
+            </p>
 
-            <h2>Visualización y Monitoreo</h2>
+            <p>
+                <strong>Presión configurada:</strong>
+                <span id="presion-config">--</span>
+            </p>
 
-            <div class="cards-grid">
+        </div>
 
-                <div class="dashboard-card">
+    </section>
 
-                    <h3>Temperatura</h3>
+    {% endif %}
 
-                    <div class="value"
-                        id="temperatura">
-                        -- °C
-                    </div>
 
-                </div>
+    {% if rol == "Supervisor" %}
 
+    <section class="dashboard-section">
 
-                <div class="dashboard-card">
+        <h2>Administración</h2>
 
-                    <h3>Presión</h3>
+        <div class="cards-grid">
 
-                    <div class="value"
-                        id="presion">
-                        -- bar
-                    </div>
+            <div class="dashboard-card">
 
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <h3>Velocidad</h3>
-
-                    <div class="value"
-                        id="velocidad">
-                        -- %
-                    </div>
-
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <h3>Nivel</h3>
-
-                    <div class="value"
-                        id="nivel">
-                        -- %
-                    </div>
-
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <h3>Estado</h3>
-
-                    <div class="value"
-                        id="estado">
-                        --
-                    </div>
-
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <h3>Producción</h3>
-
-                    <div class="value"
-                        id="produccion">
-                        --
-                    </div>
-
-                    <p>
-                        unidades
-                    </p>
-
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <h3>Eficiencia</h3>
-
-                    <div class="value"
-                        id="eficiencia">
-                        -- %
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- ================================================= -->
-        <!-- ALERTAS -->
-        <!-- ================================================= -->
-
-        <section class="dashboard-section">
-
-            <h2>Alertas Activas</h2>
-
-            <div id="alertas"
-                class="alertas-container">
-
-                Cargando alertas...
-
-            </div>
-
-        </section>
-
-
-        <!-- ================================================= -->
-        <!-- ACTIVOS -->
-        <!-- ================================================= -->
-
-        <section class="dashboard-section">
-
-            <h2>Activos Virtuales</h2>
-
-            <div id="activos"
-                class="activos-container">
-
-                Cargando activos...
-
-            </div>
-
-        </section>
-
-
-        <!-- ================================================= -->
-        <!-- TÉCNICO Y SUPERVISOR -->
-        <!-- ================================================= -->
-
-        {% if rol == "Tecnico" or rol == "Supervisor" %}
-
-        <section class="dashboard-section">
-
-            <h2>Control del Sistema</h2>
-
-            <div class="action-buttons">
-
-                <button onclick="ejecutarFuncion('encender')">
-                    Encender sistema
-                </button>
-
-                <button onclick="ejecutarFuncion('detener')">
-                    Detener sistema
-                </button>
-
-                <button onclick="ejecutarFuncion('emergencia')">
-                    Paro de emergencia
-                </button>
-
-            </div>
-
-        </section>
-
-
-        <section class="dashboard-section">
-
-            <h2>Configuración técnica</h2>
-
-            <div class="configuration-card">
+                <h3>Gestión de usuarios</h3>
 
                 <p>
-                    <strong>Línea:</strong>
-                    <span id="nombre-linea">--</span>
-                </p>
-
-                <p>
-                    <strong>Velocidad configurada:</strong>
-                    <span id="velocidad-config">--</span>
-                </p>
-
-                <p>
-                    <strong>Temperatura configurada:</strong>
-                    <span id="temperatura-config">--</span>
-                </p>
-
-                <p>
-                    <strong>Presión configurada:</strong>
-                    <span id="presion-config">--</span>
+                    Administración de usuarios y permisos.
                 </p>
 
             </div>
 
-        </section>
 
-        {% endif %}
+            <div class="dashboard-card">
 
+                <h3>Control de roles</h3>
 
-        <!-- ================================================= -->
-        <!-- SUPERVISOR -->
-        <!-- ================================================= -->
-
-        {% if rol == "Supervisor" %}
-
-        <section class="dashboard-section">
-
-            <h2>Administración</h2>
-
-            <div class="cards-grid">
-
-                <div class="dashboard-card">
-
-                    <h3>Gestión de usuarios</h3>
-
-                    <p>
-                        Administración de usuarios y permisos.
-                    </p>
-
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <h3>Control de roles</h3>
-
-                    <p>
-                        Supervisor con acceso a funciones administrativas.
-                    </p>
-
-                </div>
+                <p>
+                    Supervisor con acceso a funciones administrativas.
+                </p>
 
             </div>
 
-        </section>
+        </div>
 
-        {% endif %}
+    </section>
 
-    </main>
+    {% endif %}
 
+</main>
 
-    <!-- ===================================================== -->
-    <!-- JAVASCRIPT -->
-    <!-- ===================================================== -->
 
-    <script>
+<script>
 
-        // -----------------------------------------------------
-        // ACTUALIZAR VARIABLES
-        // -----------------------------------------------------
+    // Crea el bloque de un equipo: título + recuadros de variables
+    // (se ejecuta una sola vez por equipo)
+    function crearRecuadro(titulo, idValor, esTexto) {
 
-        async function actualizarVariables() {
+        const tarjeta = document.createElement("div");
+        tarjeta.className = "dashboard-card";
 
-            try {
+        const encabezado = document.createElement("h3");
+        encabezado.textContent = titulo;
 
-                const respuesta =
-                    await fetch("/api/variables");
+        const valor = document.createElement("div");
+        valor.className = "value" + (esTexto ? " value-texto" : "");
+        valor.id = idValor;
 
-                const datos =
-                    await respuesta.json();
+        tarjeta.appendChild(encabezado);
+        tarjeta.appendChild(valor);
 
-                document.getElementById("temperatura").textContent =
-                    datos.temperatura + " °C";
+        return tarjeta;
 
-                document.getElementById("presion").textContent =
-                    datos.presion + " bar";
+    }
 
-                document.getElementById("velocidad").textContent =
-                    datos.velocidad + " %";
 
-                document.getElementById("nivel").textContent =
-                    datos.nivel + " %";
+    function crearBloqueEquipo(equipo) {
 
-            } catch (error) {
+        const bloque = document.createElement("div");
+        bloque.className = "equipo-bloque";
+        bloque.id = "equipo-" + equipo.id;
 
-                console.error(
-                    "Error obteniendo variables:",
-                    error
-                );
+        const titulo = document.createElement("div");
+        titulo.className = "equipo-titulo";
 
-            }
+        const nombre = document.createElement("h3");
+        nombre.textContent = equipo.nombre;
 
-        }
+        const tipo = document.createElement("p");
+        tipo.className = "equipo-tipo";
+        tipo.textContent = equipo.tipo;
 
+        titulo.appendChild(nombre);
+        titulo.appendChild(tipo);
+        bloque.appendChild(titulo);
 
-        // -----------------------------------------------------
-        // ACTUALIZAR ESTADO
-        // -----------------------------------------------------
+        const grid = document.createElement("div");
+        grid.className = "cards-grid";
 
-        async function actualizarEstado() {
-
-            try {
-
-                const respuesta =
-                    await fetch("/api/estado");
-
-                const datos =
-                    await respuesta.json();
-
-                document.getElementById("estado").textContent =
-                    datos.estado;
-
-            } catch (error) {
-
-                console.error(error);
-
-            }
-
-        }
-
-
-        // -----------------------------------------------------
-        // ACTUALIZAR MÉTRICAS
-        // -----------------------------------------------------
-
-        async function actualizarMetricas() {
-
-            try {
-
-                const respuesta =
-                    await fetch("/api/metricas");
-
-                const datos =
-                    await respuesta.json();
-
-                document.getElementById("produccion").textContent =
-                    datos.produccion;
-
-                document.getElementById("eficiencia").textContent =
-                    datos.eficiencia + " %";
-
-            } catch (error) {
-
-                console.error(error);
-
-            }
-
-        }
-
-
-        // -----------------------------------------------------
-        // ACTUALIZAR ALERTAS
-        // -----------------------------------------------------
-
-        async function actualizarAlertas() {
-
-            try {
-
-                const respuesta =
-                    await fetch("/api/alertas");
-
-                const datos =
-                    await respuesta.json();
-
-                const contenedor =
-                    document.getElementById("alertas");
-
-                contenedor.innerHTML = "";
-
-                datos.alertas.forEach(function(alerta) {
-
-                    const elemento =
-                        document.createElement("div");
-
-                    elemento.className = "alerta-item";
-
-                    elemento.textContent = alerta;
-
-                    contenedor.appendChild(elemento);
-
-                });
-
-            } catch (error) {
-
-                console.error(error);
-
-            }
-
-        }
-
-
-        // -----------------------------------------------------
-        // ACTUALIZAR ACTIVOS
-        // -----------------------------------------------------
-
-        async function actualizarActivos() {
-
-            try {
-
-                const respuesta =
-                    await fetch("/api/activos");
-
-                const activos =
-                    await respuesta.json();
-
-                const contenedor =
-                    document.getElementById("activos");
-
-                contenedor.innerHTML = "";
-
-                activos.forEach(function(activo) {
-
-                    const elemento =
-                        document.createElement("div");
-
-                    elemento.className = "activo-item";
-
-                    elemento.innerHTML =
-                        "<strong>" +
-                        activo.nombre +
-                        "</strong><br>" +
-                        activo.tipo +
-                        "<br>" +
-                        "Estado: " +
-                        activo.estado;
-
-                    contenedor.appendChild(elemento);
-
-                });
-
-            } catch (error) {
-
-                console.error(error);
-
-            }
-
-        }
-
-
-        // -----------------------------------------------------
-        // CONFIGURACIÓN
-        // -----------------------------------------------------
-
-        async function actualizarConfiguracion() {
-
-            try {
-
-                const respuesta =
-                    await fetch("/api/configuracion");
-
-                const datos =
-                    await respuesta.json();
-
-                const linea =
-                    document.getElementById("nombre-linea");
-
-                if (linea) {
-
-                    linea.textContent =
-                        datos.nombre_linea;
-
-                    document.getElementById(
-                        "velocidad-config"
-                    ).textContent =
-                        datos.velocidad + " %";
-
-                    document.getElementById(
-                        "temperatura-config"
-                    ).textContent =
-                        datos.temperatura + " °C";
-
-                    document.getElementById(
-                        "presion-config"
-                    ).textContent =
-                        datos.presion + " bar";
-                }
-
-            } catch (error) {
-
-                console.error(error);
-
-            }
-
-        }
-
-
-        // -----------------------------------------------------
-        // FUNCIONES DEL SISTEMA
-        // -----------------------------------------------------
-
-        async function ejecutarFuncion(accion) {
-
-            try {
-
-                const respuesta =
-                    await fetch(
-                        "/api/funciones/" + accion,
-                        {
-                            method: "POST"
-                        }
-                    );
-
-                const datos =
-                    await respuesta.json();
-
-                if (datos.error) {
-
-                    alert(datos.error);
-
-                    return;
-                }
-
-                alert(datos.mensaje);
-
-                actualizarEstado();
-
-            } catch (error) {
-
-                console.error(error);
-
-                alert(
-                    "No se pudo ejecutar la acción."
-                );
-
-            }
-
-        }
-
-
-        // -----------------------------------------------------
-        // ACTUALIZACIÓN AUTOMÁTICA
-        // -----------------------------------------------------
-
-        function actualizarDashboard() {
-
-            actualizarVariables();
-            actualizarEstado();
-            actualizarMetricas();
-            actualizarAlertas();
-            actualizarActivos();
-            actualizarConfiguracion();
-
-        }
-
-
-        // Primera actualización
-
-        actualizarDashboard();
-
-
-        // Actualización cada 2 segundos
-
-        setInterval(
-            actualizarDashboard,
-            2000
+        grid.appendChild(
+            crearRecuadro("Estado", "estado-" + equipo.id, false)
         );
 
-    </script>
+        equipo.variables.forEach(function(variable, indice) {
+
+            grid.appendChild(
+                crearRecuadro(
+                    variable.etiqueta,
+                    "var-" + equipo.id + "-" + indice,
+                    variable.unidad === ""
+                )
+            );
+
+        });
+
+        bloque.appendChild(grid);
+
+        return bloque;
+
+    }
 
 
-    <!-- ===================================================== -->
-    <!-- SERVICE WORKER -->
-    <!-- ===================================================== -->
+    async function actualizarEquipos() {
 
-    <script>
+        try {
 
-        if ("serviceWorker" in navigator) {
+            const respuesta = await fetch("/api/equipos");
 
-            window.addEventListener(
-                "load",
-                function() {
+            if (!respuesta.ok) {
+                return;
+            }
 
-                    navigator.serviceWorker.register(
-                        "{{ url_for('static', filename='service-worker.js') }}"
+            const equipos = await respuesta.json();
+
+            const contenedor = document.getElementById("equipos");
+
+            // Primera vez: se limpia el mensaje de carga y se crean las tarjetas
+            if (!contenedor.querySelector(".equipo-bloque")) {
+
+                contenedor.innerHTML = "";
+
+                equipos.forEach(function(equipo) {
+                    contenedor.appendChild(crearBloqueEquipo(equipo));
+                });
+
+            }
+
+            // En cada ciclo solo se actualizan los valores
+            equipos.forEach(function(equipo) {
+
+                const estado = document.getElementById("estado-" + equipo.id);
+
+                if (estado) {
+                    estado.textContent = equipo.estado;
+                }
+
+                equipo.variables.forEach(function(variable, indice) {
+
+                    const celda = document.getElementById(
+                        "var-" + equipo.id + "-" + indice
                     );
 
-                }
+                    if (celda) {
+
+                        celda.textContent = variable.unidad
+                            ? variable.valor + " " + variable.unidad
+                            : variable.valor;
+
+                    }
+
+                });
+
+            });
+
+        } catch (error) {
+
+            console.error("Error obteniendo equipos:", error);
+
+        }
+
+    }
+
+
+    async function actualizarConfiguracion() {
+
+        try {
+
+            const respuesta =
+                await fetch("/api/configuracion");
+
+            const datos =
+                await respuesta.json();
+
+            const linea =
+                document.getElementById("nombre-linea");
+
+            if (linea) {
+
+                linea.textContent =
+                    datos.nombre_linea;
+
+                document.getElementById(
+                    "velocidad-config"
+                ).textContent =
+                    datos.velocidad + " %";
+
+                document.getElementById(
+                    "temperatura-config"
+                ).textContent =
+                    datos.temperatura + " °C";
+
+                document.getElementById(
+                    "presion-config"
+                ).textContent =
+                    datos.presion + " bar";
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+        }
+
+    }
+
+
+    async function ejecutarFuncion(accion) {
+
+        try {
+
+            const respuesta =
+                await fetch(
+                    "/api/funciones/" + accion,
+                    {
+                        method: "POST"
+                    }
+                );
+
+            const datos =
+                await respuesta.json();
+
+            if (datos.error) {
+
+                alert(datos.error);
+
+                return;
+            }
+
+            alert(datos.mensaje);
+
+            actualizarEquipos();
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "No se pudo ejecutar la acción."
             );
 
         }
 
-    </script>
+    }
 
-    </body>
 
-    </html>
+    function actualizarDashboard() {
+
+        actualizarEquipos();
+        actualizarConfiguracion();
+
+    }
+
+
+    // Primera actualización
+
+    actualizarDashboard();
+
+
+    // Actualización cada 2 segundos
+
+    setInterval(
+        actualizarDashboard,
+        2000
+    );
+
+</script>
+
+
+<script>
+
+    if ("serviceWorker" in navigator) {
+
+        window.addEventListener(
+            "load",
+            function() {
+
+                navigator.serviceWorker.register(
+                    "{{ url_for('static', filename='service-worker.js') }}"
+                );
+
+            }
+        );
+
+    }
+
+</script>
+
+</body>
+
+</html>
