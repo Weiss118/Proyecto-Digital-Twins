@@ -69,6 +69,14 @@
         .alertas-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
         .alertas-resumen span { padding: 8px 12px; background: #f1f5f9; border-radius: 6px; }
 
+
+        /* Selector de equipo y presentación nombre / valor / unidad */
+        .selector-equipo { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0 20px; }
+        .selector-equipo label { font-weight: 700; color: #0f172a; }
+        .selector-equipo select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; background: #fff; min-width: 260px; max-width: 100%; }
+        .dashboard-card .value .valor-unidad { font-size: 0.55em; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
+        .alertas-filtro { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: .95rem; }
+
     </style>
 
 </head>
@@ -119,6 +127,11 @@
 
         <h2>Visualización y Monitoreo</h2>
 
+        <div class="selector-equipo">
+            <label for="selector-equipo">Equipo a monitorear</label>
+            <select id="selector-equipo" aria-label="Seleccionar equipo"></select>
+        </div>
+
         <div id="equipos"
             class="equipos-lista">
 
@@ -130,6 +143,10 @@
 
     <section class="dashboard-section">
         <h2>Alertas y anomalías detectadas</h2>
+        <label class="alertas-filtro">
+            <input type="checkbox" id="alertas-todos">
+            Ver eventos de todos los equipos
+        </label>
         <div id="resumen-alertas" class="alertas-resumen">
             <span>Normales: --</span><span>Alertas: --</span><span>Críticas: --</span>
         </div>
@@ -236,15 +253,28 @@
 
 <script>
 
-    // Crea el bloque de un equipo: título + recuadros de variables
-    // (se ejecuta una sola vez por equipo)
-    function crearRecuadro(titulo, idValor, esTexto) {
+    // ------------------------------------------------------------
+    // Selector de equipo: solo se muestra el equipo elegido
+    // ------------------------------------------------------------
+
+    const TODOS = "__todos__";   // opción "Todos los equipos" del selector
+
+    let equiposDatos = [];   // última respuesta de /api/equipos
+    let equipoSeleccionado = null;
+    let verTodosManual = false;   // estado de la casilla marcada por el usuario
+
+    try {
+        equipoSeleccionado = sessionStorage.getItem("equipoSeleccionado");
+    } catch (e) { /* almacenamiento no disponible */ }
+
+
+    function crearRecuadro(etiqueta, idValor, esTexto) {
 
         const tarjeta = document.createElement("div");
         tarjeta.className = "dashboard-card";
 
         const encabezado = document.createElement("h3");
-        encabezado.textContent = titulo;
+        encabezado.textContent = etiqueta;
 
         const valor = document.createElement("div");
         valor.className = "value" + (esTexto ? " value-texto" : "");
@@ -274,25 +304,20 @@
         tipo.className = "equipo-tipo";
         tipo.textContent = equipo.tipo;
 
-        titulo.appendChild(nombre);
-        titulo.appendChild(tipo);
-
         const insignia = document.createElement("span");
         insignia.className = "equipo-estado-alerta badge-normal";
         insignia.id = "alerta-equipo-" + equipo.id;
         insignia.textContent = "Normal";
-        titulo.appendChild(insignia);
+
+        titulo.append(nombre, tipo, insignia);
         bloque.appendChild(titulo);
 
         const grid = document.createElement("div");
         grid.className = "cards-grid";
 
-        grid.appendChild(
-            crearRecuadro("Estado", "estado-" + equipo.id, false)
-        );
+        grid.appendChild(crearRecuadro("Estado", "estado-" + equipo.id, false));
 
         equipo.variables.forEach(function(variable, indice) {
-
             grid.appendChild(
                 crearRecuadro(
                     variable.etiqueta,
@@ -300,12 +325,155 @@
                     variable.unidad === ""
                 )
             );
-
         });
 
         bloque.appendChild(grid);
 
         return bloque;
+
+    }
+
+
+    // Actualiza solo los valores del bloque que ya está en pantalla
+    function pintarValores(equipo) {
+
+        const estado = document.getElementById("estado-" + equipo.id);
+        if (estado) {
+            estado.textContent = equipo.estado;
+        }
+
+        const insignia = document.getElementById("alerta-equipo-" + equipo.id);
+        if (insignia) {
+            const sev = equipo.severidad_alerta || "normal";
+            const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
+            insignia.className = "equipo-estado-alerta badge-" + sev;
+            insignia.textContent = nombres[sev] || "Sin datos";
+        }
+
+        equipo.variables.forEach(function(variable, indice) {
+
+            const celda = document.getElementById("var-" + equipo.id + "-" + indice);
+            if (!celda) {
+                return;
+            }
+
+            // Valor y unidad por separado (nombre en el encabezado de la tarjeta)
+            celda.replaceChildren();
+            const numero = document.createElement("span");
+            numero.className = "valor-num";
+            numero.textContent = variable.valor;
+            celda.appendChild(numero);
+
+            if (variable.unidad) {
+                const unidad = document.createElement("span");
+                unidad.className = "valor-unidad";
+                unidad.textContent = variable.unidad;
+                celda.appendChild(unidad);
+            }
+
+            const tarjeta = celda.closest(".dashboard-card");
+            if (tarjeta) {
+                tarjeta.classList.remove("estado-normal", "estado-alerta", "estado-paro");
+                if (["normal", "alerta", "paro"].includes(variable.severidad)) {
+                    tarjeta.classList.add("estado-" + variable.severidad);
+                }
+                tarjeta.title = variable.mensaje_alerta || "";
+            }
+
+        });
+
+    }
+
+
+    function esVistaTodos() {
+        return equipoSeleccionado === TODOS;
+    }
+
+
+    function equipoActual() {
+        return equiposDatos.find(function(e) { return e.id === equipoSeleccionado; });
+    }
+
+
+    // En la vista "Todos los equipos" la casilla queda marcada y bloqueada
+    function sincronizarCasilla() {
+        const casilla = document.getElementById("alertas-todos");
+        casilla.checked = esVistaTodos() || verTodosManual;
+        casilla.disabled = esVistaTodos();
+    }
+
+
+    // Reconstruye la lista del selector solo si cambió la lista de equipos
+    function actualizarSelector() {
+
+        const selector = document.getElementById("selector-equipo");
+        const ids = equiposDatos.map(function(e) { return e.id; });
+
+        if (equipoSeleccionado !== TODOS && !ids.includes(equipoSeleccionado)) {
+            equipoSeleccionado = ids.length ? ids[0] : null;
+        }
+
+        const firma = ids.join("|");
+        if (selector.dataset.firma !== firma) {
+            selector.replaceChildren();
+
+            if (equiposDatos.length > 1) {
+                const opcionTodos = document.createElement("option");
+                opcionTodos.value = TODOS;
+                opcionTodos.textContent = "Todos los equipos";
+                selector.appendChild(opcionTodos);
+            }
+
+            equiposDatos.forEach(function(equipo) {
+                const opcion = document.createElement("option");
+                opcion.value = equipo.id;
+                opcion.textContent = equipo.nombre;
+                selector.appendChild(opcion);
+            });
+            selector.dataset.firma = firma;
+        }
+
+        // Con un solo equipo disponible no existe la opción "Todos"
+        if (equipoSeleccionado === TODOS && equiposDatos.length <= 1) {
+            equipoSeleccionado = ids.length ? ids[0] : null;
+        }
+
+        if (equipoSeleccionado) {
+            selector.value = equipoSeleccionado;
+        }
+
+        sincronizarCasilla();
+
+    }
+
+
+    function mostrarEquipoSeleccionado() {
+
+        const contenedor = document.getElementById("equipos");
+
+        if (!equiposDatos.length) {
+            contenedor.textContent = "No hay equipos disponibles para tu perfil.";
+            contenedor.dataset.vista = "";
+            return;
+        }
+
+        // Equipos que se muestran: todos o solo el elegido
+        const visibles = esVistaTodos()
+            ? equiposDatos
+            : equiposDatos.filter(function(e) { return e.id === equipoSeleccionado; });
+
+        // Si cambió lo que debe verse, se reconstruyen los bloques
+        const vista = visibles.map(function(e) { return e.id; }).join("|");
+        if (contenedor.dataset.vista !== vista) {
+            contenedor.replaceChildren();
+            visibles.forEach(function(equipo) {
+                contenedor.appendChild(crearBloqueEquipo(equipo));
+            });
+            contenedor.dataset.vista = vista;
+        }
+
+        // En cada ciclo solo se actualizan los valores
+        visibles.forEach(pintarValores);
 
     }
 
@@ -320,63 +488,10 @@
                 return;
             }
 
-            const equipos = await respuesta.json();
+            equiposDatos = await respuesta.json();
 
-            const contenedor = document.getElementById("equipos");
-
-            // Primera vez: se limpia el mensaje de carga y se crean las tarjetas
-            if (!contenedor.querySelector(".equipo-bloque")) {
-
-                contenedor.innerHTML = "";
-
-                equipos.forEach(function(equipo) {
-                    contenedor.appendChild(crearBloqueEquipo(equipo));
-                });
-
-            }
-
-            // En cada ciclo solo se actualizan los valores
-            equipos.forEach(function(equipo) {
-
-                const estado = document.getElementById("estado-" + equipo.id);
-
-                if (estado) {
-                    estado.textContent = equipo.estado;
-                }
-
-                const insignia = document.getElementById("alerta-equipo-" + equipo.id);
-                if (insignia) {
-                    const sev = equipo.severidad_alerta || "normal";
-                    const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
-                    insignia.className = "equipo-estado-alerta badge-" + sev;
-                    insignia.textContent = nombres[sev] || "Sin datos";
-                }
-
-                equipo.variables.forEach(function(variable, indice) {
-
-                    const celda = document.getElementById(
-                        "var-" + equipo.id + "-" + indice
-                    );
-
-                    if (celda) {
-
-                        celda.textContent = variable.unidad
-                            ? variable.valor + " " + variable.unidad
-                            : variable.valor;
-
-                        const tarjeta = celda.closest(".dashboard-card");
-                        if (tarjeta) {
-                            tarjeta.classList.remove("estado-normal", "estado-alerta", "estado-paro");
-                            if (["normal", "alerta", "paro"].includes(variable.severidad)) {
-                                tarjeta.classList.add("estado-" + variable.severidad);
-                            }
-                            tarjeta.title = variable.mensaje_alerta || "";
-                        }
-                    }
-
-                });
-
-            });
+            actualizarSelector();
+            mostrarEquipoSeleccionado();
 
         } catch (error) {
 
@@ -385,6 +500,29 @@
         }
 
     }
+
+
+    document.getElementById("selector-equipo").addEventListener("change", function(evento) {
+
+        equipoSeleccionado = evento.target.value;
+
+        try {
+            sessionStorage.setItem("equipoSeleccionado", equipoSeleccionado);
+        } catch (e) { /* almacenamiento no disponible */ }
+
+        sincronizarCasilla();
+        mostrarEquipoSeleccionado();
+        actualizarAlertas();
+
+    });
+
+
+    document.getElementById("alertas-todos").addEventListener("change", function(evento) {
+        if (!esVistaTodos()) {
+            verTodosManual = evento.target.checked;
+        }
+        actualizarAlertas();
+    });
 
 
     async function actualizarConfiguracion() {
@@ -470,34 +608,47 @@
 
 
     async function actualizarAlertas() {
-        try {
-            const [respuestaEquipos, respuestaEventos] = await Promise.all([
-                fetch("/api/equipos"),
-                fetch("/api/alertas")
-            ]);
-            if (!respuestaEquipos.ok || !respuestaEventos.ok) return;
 
-            const equipos = await respuestaEquipos.json();
+        try {
+
+            const respuestaEventos = await fetch("/api/alertas");
+            if (!respuestaEventos.ok) return;
+
             const datosEventos = await respuestaEventos.json();
-            const variables = equipos.flatMap(e => e.variables || []);
-            const normales = variables.filter(v => v.severidad === "normal").length;
-            const alertas = variables.filter(v => v.severidad === "alerta").length;
-            const criticas = variables.filter(v => v.severidad === "paro").length;
+            const verTodos = esVistaTodos() || document.getElementById("alertas-todos").checked;
+            const equipo = equipoActual();
+
+            // Resumen del estado ACTUAL (equipo elegido o todos)
+            const origen = (verTodos || !equipo) ? equiposDatos : [equipo];
+            const variables = origen.flatMap(function(e) { return e.variables || []; });
+            const normales = variables.filter(function(v) { return v.severidad === "normal"; }).length;
+            const alertas = variables.filter(function(v) { return v.severidad === "alerta"; }).length;
+            const criticas = variables.filter(function(v) { return v.severidad === "paro"; }).length;
             document.getElementById("resumen-alertas").innerHTML =
                 `<span>Normales: ${normales}</span><span>Alertas: ${alertas}</span><span>Críticas: ${criticas}</span>`;
 
+            // Historial de EVENTOS (filtrado por equipo)
             const contenedor = document.getElementById("lista-eventos-alerta");
-            const eventos = datosEventos.eventos || [];
+            let eventos = datosEventos.eventos || [];
+            if (!verTodos && equipo) {
+                eventos = eventos.filter(function(e) { return e.equipo_id === equipo.id; });
+            }
+
             if (!eventos.length) {
-                contenedor.textContent = "No se han registrado eventos de alerta.";
+                contenedor.textContent = verTodos || !equipo
+                    ? "No se han registrado eventos de alerta."
+                    : "No se han registrado eventos de alerta para este equipo.";
                 return;
             }
+
+            const nombresSeveridad = { alerta: "ALERTA", paro: "CRÍTICO" };
+
             contenedor.replaceChildren();
-            eventos.forEach(evento => {
+            eventos.forEach(function(evento) {
                 const articulo = document.createElement("article");
                 articulo.className = "evento-alerta" + (evento.severidad === "paro" ? " evento-paro" : "");
                 const titulo = document.createElement("strong");
-                titulo.textContent = `${evento.equipo_nombre} — ${evento.severidad.toUpperCase()}`;
+                titulo.textContent = `${evento.equipo_nombre} — ${nombresSeveridad[evento.severidad] || evento.severidad.toUpperCase()}`;
                 const detalle = document.createElement("p");
                 detalle.textContent = `${evento.variable}: ${evento.valor ?? "--"} ${evento.unidad || ""}. ${evento.mensaje}`;
                 const fecha = document.createElement("small");
@@ -505,13 +656,15 @@
                 articulo.append(titulo, detalle, fecha);
                 contenedor.appendChild(articulo);
             });
+
         } catch (error) {
             console.error("Error actualizando alertas:", error);
         }
+
     }
 
-    function actualizarDashboard() {
-        actualizarEquipos();
+    async function actualizarDashboard() {
+        await actualizarEquipos();
         actualizarConfiguracion();
         actualizarAlertas();
     }
