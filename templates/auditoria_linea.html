@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría de Línea - Gemelos Digitales</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .tabla-activo {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .tabla-activo th {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 10px 14px;
+            text-align: center;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+        }
+        .tabla-activo td {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+        }
+        .tabla-activo tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .col-parametro {
+            font-weight: bold;
+            width: 35%;
+            background-color: #f1f5f9;
+            color: #1e293b;
+        }
+        .col-valor {
+            width: 65%;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-brand">
+            Gemelos Digitales <span class="nav-brand-tag">PWA</span>
+        </div>
+        <div class="nav-user">
+            <span>{{ nombre_usuario }} <code>({{ rol }})</code></span>
+            <a href="{{ url_for('dashboard') }}" class="btn-logout">← Volver al Dashboard</a>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <h1 class="dashboard-title">Auditoría Operacional: {{ nombre_linea }}</h1>
+        <p class="dashboard-subtitle">Evaluación y tablas dinámicas de telemetría por activo registrando métricas de InfluxDB.</p>
+
+        <!-- Tarjeta de Dictamen Consolidado -->
+        <section class="module-card {{ color_badge }}">
+            <h3>Dictamen Global: <strong>{{ dictamen }}</strong></h3>
+            <p>{{ descripcion }}</p>
+
+            <div class="action-grid" style="margin-top: 1.25rem;">
+                <a href="{{ url_for('exportar_auditoria', linea_id=linea_id, formato='pdf') }}" class="btn-action primary-blue">
+                    📄 Exportar Informe PDF (Tablas por Activo)
+                </a>
+                <a href="{{ url_for('exportar_auditoria', linea_id=linea_id, formato='csv') }}" class="btn-action success-emerald">
+                    📊 Exportar Métricas en CSV
+                </a>
+            </div>
+        </section>
+
+        <!-- Tablas Dinámicas por Activo -->
+        <section class="module-card">
+            <h2>Telemetría Detallada por Activo</h2>
+
+            {% for act in activos %}
+            <table class="tabla-activo">
+                <thead>
+                    <tr>
+                        <th colspan="2">ID / ACTIVO: {{ act.nombre | upper }} ({{ act.id }})</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="col-parametro">TIPO DE ACTIVO</td>
+                        <td class="col-valor">{{ act.tipo }}</td>
+                    </tr>
+                    <tr>
+                        <td class="col-parametro">ESTADO OPERATIVO</td>
+                        <td class="col-valor">{{ act.estado }}</td>
+                    </tr>
+                    <tr>
+                        <td class="col-parametro">SALUD DE ACTIVO</td>
+                        <td class="col-valor">
+                            <strong>{{ act.salud_individual }}</strong>
+                        </td>
+                    </tr>
+                    {% for var in act.variables %}
+                    <tr>
+                        <td class="col-parametro">{{ var.etiqueta | upper }}</td>
+                        <td class="col-valor">
+                            {{ var.valor }} {% if var.unidad %}{{ var.unidad }}{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+        </section>
+    </main>
+</body>
+</html>

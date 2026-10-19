@@ -2,18 +2,27 @@ import os
 import sqlite3
 import random
 import time
+from datetime import datetime
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+# Se añade send_file para las descargas de PDF y CSV
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from equipos import EQUIPOS
 from alertas import REGLAS_ALERTAS, evaluar_valor
-from datetime import datetime
+
+# IMPORTS DE SPRINT 2 (InfluxDB + Auditoría + Reportes)
+from services.influxDB import InfluxDBService
+from services.report_generator import generar_pdf_auditoria, generar_csv_auditoria
+from logic.auditoria_logic import evaluar_estado_linea
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "clave-secreta-gemelo-digital-dev")
 
 DB_NAME = "database.db"
+
+# Inicializar servicio InfluxDB Cloud
+influx_service = InfluxDBService()
 
 
 def get_db_connection():
@@ -58,6 +67,22 @@ def init_db():
             estado TEXT NOT NULL
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS lineas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL UNIQUE
+        )
+    """)
+
+    try:
+        cursor.execute("ALTER TABLE activos ADD COLUMN linea_id INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("SELECT COUNT(*) AS total FROM lineas")
+    if cursor.fetchone()["total"] == 0:
+        cursor.execute("INSERT INTO lineas (id, nombre) VALUES (1, 'Línea Principal de Manufactura')")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS metricas_produccion (
@@ -350,79 +375,11 @@ def logout():
     return redirect(url_for("login"))
 
 # RUTAS API REST
-
 @app.route("/api/equipos")
 def api_equipos():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
-
-    actualizar_simulacion()
-    actualizar_equipos()
-
-    resultado = []
-
-    for equipo in EQUIPOS:
-        # Primero los valores base de este equipo
-        valores = {}
-        for variable in equipo["variables"]:
-            if "calculo" in variable or variable.get("tipo") == "texto":
-                continue
-            valores[variable["clave"]] = valores_equipos[f'{equipo["id"]}.{variable["clave"]}']
-
-        # Después los valores calculados a partir de los anteriores
-        for variable in equipo["variables"]:
-            if "calculo" in variable:
-                valores[variable["clave"]] = variable["calculo"](valores)
-
-        # Armar la respuesta respetando el orden definido en equipos.py
-        variables_salida = []
-        for variable in equipo["variables"]:
-            if variable.get("tipo") == "texto":
-                valor = variable["valor"]
-            else:
-                decimales = variable.get("decimales", 1)
-                valor = round(valores[variable["clave"]], decimales)
-                if decimales == 0:
-                    valor = int(valor)
-
-            clave_variable = variable["clave"]
-            regla = REGLAS_ALERTAS.get(equipo["id"], {}).get(clave_variable)
-            evaluacion = evaluar_valor(valor, regla) if regla else {
-                "severidad": "sin_regla",
-                "mensaje": "Variable sin umbral configurado"
-            }
-
-            if regla:
-                registrar_cambio_alerta(equipo, variable, valor, variable["unidad"], evaluacion)
-
-            variables_salida.append({
-                "clave": clave_variable,
-                "etiqueta": variable["etiqueta"],
-                "valor": valor,
-                "unidad": variable["unidad"],
-                "severidad": evaluacion["severidad"],
-                "mensaje_alerta": evaluacion["mensaje"]
-            })
-
-        severidades = [v["severidad"] for v in variables_salida]
-        if "paro" in severidades:
-            severidad_equipo = "paro"
-        elif "alerta" in severidades:
-            severidad_equipo = "alerta"
-        else:
-            severidad_equipo = "normal"
-
-        resultado.append({
-            "id": equipo["id"],
-            "nombre": equipo["nombre"],
-            "tipo": equipo["tipo"],
-            "estado": simulacion["estado"],
-            "severidad_alerta": severidad_equipo,
-            "variables": variables_salida
-        })
-
-    return jsonify(resultado)
-
+    return jsonify(obtener_estado_equipos_completo())
 
 @app.route("/api/variables")
 def api_variables():
@@ -567,6 +524,150 @@ def funciones(accion):
 
     return jsonify({"error": "Acción no reconocida."}), 400
 
+# RUTAS DE AUDITORÍA Y EXPORTACIÓN DE REPORTES (SPRINT 2)
+
+@app.route("/auditoria/linea/<int:linea_id>")
+def ver_auditoria_linea(linea_id):
+    if "usuario_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    linea = conn.execute("SELECT * FROM lineas WHERE id = ?", (linea_id,)).fetchone()
+    conn.close()
+
+    nombre_linea = linea["nombre"] if linea else "Línea Principal de Manufactura"
+
+    lista_activos = obtener_estado_equipos_completo()
+    dictamen, descripcion, color_badge = evaluar_estado_linea(lista_activos)
+
+    return render_template(
+        "auditoria_linea.html",
+        linea_id=linea_id,
+        nombre_linea=nombre_linea,
+        dictamen=dictamen,
+        descripcion=descripcion,
+        color_badge=color_badge,
+        activos=lista_activos,
+        nombre_usuario=session.get("nombre"),
+        rol=session.get("rol")
+    )
+
+
+@app.route("/exportar/auditoria/<int:linea_id>/<formato>")
+def exportar_auditoria(linea_id, formato):
+    if "usuario_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    linea = conn.execute("SELECT * FROM lineas WHERE id = ?", (linea_id,)).fetchone()
+    conn.close()
+
+    nombre_linea = linea["nombre"] if linea else "Línea Principal de Manufactura"
+
+    lista_activos = obtener_estado_equipos_completo()
+    dictamen, descripcion, _ = evaluar_estado_linea(lista_activos)
+    fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M hrs")
+    auditor = session.get("nombre", "Auditor PWA")
+
+    if formato.lower() == "pdf":
+        pdf_buffer = generar_pdf_auditoria(
+            nombre_linea=nombre_linea,
+            dictamen_linea=dictamen,
+            descripcion_dictamen=descripcion,
+            lista_activos=lista_activos,
+            fecha_str=fecha_str,
+            auditor=auditor
+        )
+        return send_file(
+            pdf_buffer,
+            as_attachment=True,
+            download_name=f"Reporte_Auditoria_Linea_{linea_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            mimetype="application/pdf"
+        )
+
+    elif formato.lower() == "csv":
+        csv_buffer = generar_csv_auditoria(
+            nombre_linea=nombre_linea,
+            dictamen_linea=dictamen,
+            lista_activos=lista_activos
+        )
+        return send_file(
+            csv_buffer,
+            as_attachment=True,
+            download_name=f"Auditoria_Linea_{linea_id}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mimetype="text/csv"
+        )
+
+    flash("Formato de exportación no válido.", "danger")
+    return redirect(url_for("dashboard"))
+
+def obtener_estado_equipos_completo():
+    actualizar_simulacion()
+    actualizar_equipos()
+
+    resultado = []
+
+    for equipo in EQUIPOS:
+        valores = {}
+        for variable in equipo["variables"]:
+            if "calculo" in variable or variable.get("tipo") == "texto":
+                continue
+            valores[variable["clave"]] = valores_equipos[f'{equipo["id"]}.{variable["clave"]}']
+
+        for variable in equipo["variables"]:
+            if "calculo" in variable:
+                valores[variable["clave"]] = variable["calculo"](valores)
+
+        variables_salida = []
+        variables_dict_influx = {}
+
+        for variable in equipo["variables"]:
+            if variable.get("tipo") == "texto":
+                valor = variable["valor"]
+            else:
+                decimales = variable.get("decimales", 1)
+                valor = round(valores[variable["clave"]], decimales)
+                if decimales == 0:
+                    valor = int(valor)
+
+            clave_variable = variable["clave"]
+            regla = REGLAS_ALERTAS.get(equipo["id"], {}).get(clave_variable)
+            evaluacion = evaluar_valor(valor, regla) if regla else {
+                "severidad": "sin_regla",
+                "mensaje": "Variable sin umbral configurado"
+            }
+
+            if regla:
+                registrar_cambio_alerta(equipo, variable, valor, variable["unidad"], evaluacion)
+
+            variables_salida.append({
+                "clave": clave_variable,
+                "etiqueta": variable["etiqueta"],
+                "valor": valor,
+                "unidad": variable["unidad"],
+                "severidad": evaluacion["severidad"],
+                "mensaje_alerta": evaluacion["mensaje"]
+            })
+
+            variables_dict_influx[clave_variable] = valor
+
+        # Enviar diccionario completo de variables a InfluxDB
+        influx_service.registrar_metricas_activo(
+            linea_id=1,
+            activo_id=equipo["id"],
+            variables_dict=variables_dict_influx,
+            estado=simulacion["estado"]
+        )
+
+        resultado.append({
+            "id": equipo["id"],
+            "nombre": equipo["nombre"],
+            "tipo": equipo["tipo"],
+            "estado": simulacion["estado"],
+            "variables": variables_salida
+        })
+
+    return resultado
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
