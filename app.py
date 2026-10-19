@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from equipos import EQUIPOS
+from alertas import REGLAS_ALERTAS, evaluar_valor
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "clave-secreta-gemelo-digital-dev")
@@ -77,6 +79,20 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS eventos_alerta (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipo_id TEXT NOT NULL,
+            equipo_nombre TEXT NOT NULL,
+            variable TEXT NOT NULL,
+            valor REAL,
+            unidad TEXT,
+            severidad TEXT NOT NULL,
+            mensaje TEXT NOT NULL,
+            fecha_hora TEXT NOT NULL
+        )
+    """)
+
     roles = [("Operador",), ("Tecnico",), ("Supervisor",)]
     for rol in roles:
         cursor.execute("INSERT OR IGNORE INTO roles (nombre) VALUES (?)", rol)
@@ -128,6 +144,33 @@ def init_db():
 
 
 init_db()
+
+# Última severidad conocida por variable, para registrar cambios y no repetir
+# el mismo evento en cada consulta del dashboard.
+_severidad_alertas_anterior = {}
+
+
+def registrar_cambio_alerta(equipo, variable, valor, unidad, resultado):
+    clave = f"{equipo['id']}.{variable['clave']}"
+    severidad = resultado["severidad"]
+    anterior = _severidad_alertas_anterior.get(clave, "normal")
+    _severidad_alertas_anterior[clave] = severidad
+
+    if severidad == anterior or severidad == "normal":
+        return
+
+    conn = get_db_connection()
+    conn.execute("""
+        INSERT INTO eventos_alerta
+        (equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        equipo["id"], equipo["nombre"], variable["etiqueta"],
+        float(valor) if valor is not None else None, unidad, severidad,
+        resultado["mensaje"], datetime.now().astimezone().isoformat(timespec="seconds")
+    ))
+    conn.commit()
+    conn.close()
 
 
 # SIMULACIÓN DEL GEMELO DIGITAL
@@ -342,17 +385,39 @@ def api_equipos():
                 if decimales == 0:
                     valor = int(valor)
 
+            clave_variable = variable["clave"]
+            regla = REGLAS_ALERTAS.get(equipo["id"], {}).get(clave_variable)
+            evaluacion = evaluar_valor(valor, regla) if regla else {
+                "severidad": "sin_regla",
+                "mensaje": "Variable sin umbral configurado"
+            }
+
+            if regla:
+                registrar_cambio_alerta(equipo, variable, valor, variable["unidad"], evaluacion)
+
             variables_salida.append({
+                "clave": clave_variable,
                 "etiqueta": variable["etiqueta"],
                 "valor": valor,
-                "unidad": variable["unidad"]
+                "unidad": variable["unidad"],
+                "severidad": evaluacion["severidad"],
+                "mensaje_alerta": evaluacion["mensaje"]
             })
+
+        severidades = [v["severidad"] for v in variables_salida]
+        if "paro" in severidades:
+            severidad_equipo = "paro"
+        elif "alerta" in severidades:
+            severidad_equipo = "alerta"
+        else:
+            severidad_equipo = "normal"
 
         resultado.append({
             "id": equipo["id"],
             "nombre": equipo["nombre"],
             "tipo": equipo["tipo"],
             "estado": simulacion["estado"],
+            "severidad_alerta": severidad_equipo,
             "variables": variables_salida
         })
 
@@ -442,20 +507,21 @@ def api_alertas():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
 
+    # Actualiza las mediciones y el estado de las reglas antes de consultar eventos.
     actualizar_simulacion()
-    alertas = []
+    actualizar_equipos()
+    conn = get_db_connection()
+    registros = conn.execute("""
+        SELECT equipo_id, equipo_nombre, variable, valor, unidad,
+               severidad, mensaje, fecha_hora
+        FROM eventos_alerta
+        ORDER BY id DESC LIMIT 50
+    """).fetchall()
+    conn.close()
 
-    if simulacion["temperatura"] >= 82:
-        alertas.append("Temperatura elevada.")
-    if simulacion["presion"] >= 4.2:
-        alertas.append("Presión elevada.")
-    if simulacion["nivel"] <= 15:
-        alertas.append("Nivel bajo.")
-
-    if not alertas:
-        alertas.append("No existen alertas activas.")
-
-    return jsonify({"alertas": alertas})
+    return jsonify({
+        "eventos": [dict(registro) for registro in registros]
+    })
 
 
 @app.route("/api/configuracion")

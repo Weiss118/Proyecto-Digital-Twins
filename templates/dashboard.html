@@ -54,6 +54,21 @@
             font-size: 20px;
         }
 
+        /* Indicadores visuales del sistema de alertas */
+        .dashboard-card.estado-normal { border-left: 5px solid #16a34a; }
+        .dashboard-card.estado-alerta { border-left: 5px solid #ca8a04; background: #fffbeb; }
+        .dashboard-card.estado-paro { border-left: 5px solid #dc2626; background: #fef2f2; }
+        .equipo-estado-alerta { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: .8rem; font-weight: 700; }
+        .badge-normal { background: #dcfce7; color: #166534; }
+        .badge-alerta { background: #fef3c7; color: #92400e; }
+        .badge-paro { background: #fee2e2; color: #991b1b; }
+        .badge-sin_datos { background: #e2e8f0; color: #334155; }
+        .evento-alerta { border-left: 5px solid #ca8a04; padding: 12px; margin: 10px 0; background: #fffbeb; border-radius: 6px; }
+        .evento-paro { border-left-color: #dc2626; background: #fef2f2; }
+        .evento-normal { border-left-color: #16a34a; background: #f0fdf4; }
+        .alertas-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+        .alertas-resumen span { padding: 8px 12px; background: #f1f5f9; border-radius: 6px; }
+
     </style>
 
 </head>
@@ -111,6 +126,15 @@
 
         </div>
 
+    </section>
+
+    <section class="dashboard-section">
+        <h2>Alertas y anomalías detectadas</h2>
+        <div id="resumen-alertas" class="alertas-resumen">
+            <span>Normales: --</span><span>Alertas: --</span><span>Críticas: --</span>
+        </div>
+        <div id="lista-eventos-alerta">Cargando eventos...</div>
+        <p class="dashboard-subtitle">Las alertas son indicaciones del gemelo digital. No sustituyen los sistemas de seguridad ni ejecutan paros físicos.</p>
     </section>
 
 
@@ -252,6 +276,12 @@
 
         titulo.appendChild(nombre);
         titulo.appendChild(tipo);
+
+        const insignia = document.createElement("span");
+        insignia.className = "equipo-estado-alerta badge-normal";
+        insignia.id = "alerta-equipo-" + equipo.id;
+        insignia.textContent = "Normal";
+        titulo.appendChild(insignia);
         bloque.appendChild(titulo);
 
         const grid = document.createElement("div");
@@ -314,6 +344,14 @@
                     estado.textContent = equipo.estado;
                 }
 
+                const insignia = document.getElementById("alerta-equipo-" + equipo.id);
+                if (insignia) {
+                    const sev = equipo.severidad_alerta || "normal";
+                    const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
+                    insignia.className = "equipo-estado-alerta badge-" + sev;
+                    insignia.textContent = nombres[sev] || "Sin datos";
+                }
+
                 equipo.variables.forEach(function(variable, indice) {
 
                     const celda = document.getElementById(
@@ -326,6 +364,14 @@
                             ? variable.valor + " " + variable.unidad
                             : variable.valor;
 
+                        const tarjeta = celda.closest(".dashboard-card");
+                        if (tarjeta) {
+                            tarjeta.classList.remove("estado-normal", "estado-alerta", "estado-paro");
+                            if (["normal", "alerta", "paro"].includes(variable.severidad)) {
+                                tarjeta.classList.add("estado-" + variable.severidad);
+                            }
+                            tarjeta.title = variable.mensaje_alerta || "";
+                        }
                     }
 
                 });
@@ -423,11 +469,51 @@
     }
 
 
-    function actualizarDashboard() {
+    async function actualizarAlertas() {
+        try {
+            const [respuestaEquipos, respuestaEventos] = await Promise.all([
+                fetch("/api/equipos"),
+                fetch("/api/alertas")
+            ]);
+            if (!respuestaEquipos.ok || !respuestaEventos.ok) return;
 
+            const equipos = await respuestaEquipos.json();
+            const datosEventos = await respuestaEventos.json();
+            const variables = equipos.flatMap(e => e.variables || []);
+            const normales = variables.filter(v => v.severidad === "normal").length;
+            const alertas = variables.filter(v => v.severidad === "alerta").length;
+            const criticas = variables.filter(v => v.severidad === "paro").length;
+            document.getElementById("resumen-alertas").innerHTML =
+                `<span>Normales: ${normales}</span><span>Alertas: ${alertas}</span><span>Críticas: ${criticas}</span>`;
+
+            const contenedor = document.getElementById("lista-eventos-alerta");
+            const eventos = datosEventos.eventos || [];
+            if (!eventos.length) {
+                contenedor.textContent = "No se han registrado eventos de alerta.";
+                return;
+            }
+            contenedor.replaceChildren();
+            eventos.forEach(evento => {
+                const articulo = document.createElement("article");
+                articulo.className = "evento-alerta" + (evento.severidad === "paro" ? " evento-paro" : "");
+                const titulo = document.createElement("strong");
+                titulo.textContent = `${evento.equipo_nombre} — ${evento.severidad.toUpperCase()}`;
+                const detalle = document.createElement("p");
+                detalle.textContent = `${evento.variable}: ${evento.valor ?? "--"} ${evento.unidad || ""}. ${evento.mensaje}`;
+                const fecha = document.createElement("small");
+                fecha.textContent = evento.fecha_hora;
+                articulo.append(titulo, detalle, fecha);
+                contenedor.appendChild(articulo);
+            });
+        } catch (error) {
+            console.error("Error actualizando alertas:", error);
+        }
+    }
+
+    function actualizarDashboard() {
         actualizarEquipos();
         actualizarConfiguracion();
-
+        actualizarAlertas();
     }
 
 
