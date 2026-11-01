@@ -2,34 +2,23 @@
 <html lang="es">
 
 <head>
-
     <meta charset="UTF-8">
-
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Gemelo Digital</title>
 
-    <link rel="manifest"
-        href="{{ url_for('static', filename='manifest.json') }}">
-
-    <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <style>
-
-        /* Equipos: reutiliza el diseño de recuadros del dashboard
-           (cards-grid, dashboard-card, value) */
-
         .equipo-bloque {
             margin-bottom: 32px;
         }
 
         .equipo-titulo {
             display: flex;
-            align-items: baseline;
+            align-items: center;
             flex-wrap: wrap;
-            gap: 4px 12px;
+            gap: 8px 12px;
             padding-left: 12px;
             border-left: 4px solid #2563eb;
         }
@@ -69,62 +58,36 @@
         .alertas-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
         .alertas-resumen span { padding: 8px 12px; background: #f1f5f9; border-radius: 6px; }
 
-
         /* Selector de equipo y presentación nombre / valor / unidad */
         .selector-equipo { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0 20px; }
         .selector-equipo label { font-weight: 700; color: #0f172a; }
         .selector-equipo select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; background: #fff; min-width: 260px; max-width: 100%; }
         .dashboard-card .value .valor-unidad { font-size: 0.55em; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
         .alertas-filtro { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: .95rem; }
-
     </style>
-
 </head>
-
 
 <body>
 
 <nav class="navbar">
-
     <div class="navbar-title">
         Gemelo Digital
     </div>
 
     <div class="navbar-user">
-
-        <span>
-            {{ nombre }}
-        </span>
-
-        <span>
-            {{ numero_empleado }}
-        </span>
-
-        <span class="role-badge">
-            {{ rol }}
-        </span>
-
-        <a href="{{ url_for('logout') }}"
-        class="logout-btn">
-            Cerrar sesión
-        </a>
-
+        <span>{{ nombre }}</span>
+        <span>{{ numero_empleado }}</span>
+        <span class="role-badge">{{ rol }}</span>
+        <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar sesión</a>
     </div>
-
 </nav>
-
 
 <main class="dashboard-container">
 
     <h1>PRUEBA GEMELO DIGITAL</h1>
-
-    <p class="dashboard-subtitle">
-        Sistema virtual de monitoreo y simulación industrial
-    </p>
-
+    <p class="dashboard-subtitle">Sistema virtual de monitoreo y simulación industrial</p>
 
     <section class="dashboard-section">
-
         <h2>Visualización y Monitoreo</h2>
 
         <div class="selector-equipo">
@@ -132,13 +95,9 @@
             <select id="selector-equipo" aria-label="Seleccionar equipo"></select>
         </div>
 
-        <div id="equipos"
-            class="equipos-lista">
-
+        <div id="equipos" class="equipos-lista">
             Cargando equipos...
-
         </div>
-
     </section>
 
     <section class="dashboard-section">
@@ -154,137 +113,96 @@
         <p class="dashboard-subtitle">Las alertas son indicaciones del gemelo digital. No sustituyen los sistemas de seguridad ni ejecutan paros físicos.</p>
     </section>
 
-
     {% if rol == "Tecnico" or rol == "Supervisor" %}
 
     <section class="dashboard-section">
-
         <h2>Control del Sistema</h2>
-
         <div class="action-buttons">
-
-            <button onclick="ejecutarFuncion('encender')">
-                Encender sistema
-            </button>
-
-            <button onclick="ejecutarFuncion('detener')">
-                Detener sistema
-            </button>
-
-            <button onclick="ejecutarFuncion('emergencia')">
-                Paro de emergencia
-            </button>
-
+            <button onclick="ejecutarFuncion('encender')">Encender sistema</button>
+            <button onclick="ejecutarFuncion('detener')">Detener sistema</button>
+            <button onclick="ejecutarFuncion('emergencia')">Paro de emergencia</button>
         </div>
+    </section>
 
     <section class="dashboard-section">
-
         <h2>Auditoría de Línea e Informes</h2>
-
         <div class="action-buttons">
-
             <a href="{{ url_for('ver_auditoria_linea', linea_id=1) }}" 
                style="display: inline-block; padding: 12px 20px; background-color: #2563eb; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; transition: background 0.2s;">
-                Consultar Auditoría y Generar Reporte (PDF / CSV)
+                📋 Consultar Auditoría y Generar Reporte (PDF / CSV)
             </a>
-
         </div>
-
     </section>
-
-    </section>
-
 
     <section class="dashboard-section">
-
         <h2>Configuración técnica</h2>
-
         <div class="configuration-card">
-
-            <p>
-                <strong>Línea:</strong>
-                <span id="nombre-linea">--</span>
-            </p>
-
-            <p>
-                <strong>Velocidad configurada:</strong>
-                <span id="velocidad-config">--</span>
-            </p>
-
-            <p>
-                <strong>Temperatura configurada:</strong>
-                <span id="temperatura-config">--</span>
-            </p>
-
-            <p>
-                <strong>Presión configurada:</strong>
-                <span id="presion-config">--</span>
-            </p>
-
+            <p><strong>Línea:</strong> <span id="nombre-linea">--</span></p>
+            <p><strong>Velocidad configurada:</strong> <span id="velocidad-config">--</span></p>
+            <p><strong>Temperatura configurada:</strong> <span id="temperatura-config">--</span></p>
+            <p><strong>Presión configurada:</strong> <span id="presion-config">--</span></p>
         </div>
-
     </section>
 
     {% endif %}
 
-
     {% if rol == "Supervisor" %}
 
     <section class="dashboard-section">
-
         <h2>Administración</h2>
-
         <div class="cards-grid">
-
             <div class="dashboard-card">
-
                 <h3>Gestión de usuarios</h3>
-
-                <p>
-                    Administración de usuarios y permisos.
-                </p>
-
+                <p>Administración de usuarios y permisos.</p>
             </div>
-
-
             <div class="dashboard-card">
-
                 <h3>Control de roles</h3>
-
-                <p>
-                    Supervisor con acceso a funciones administrativas.
-                </p>
-
+                <p>Supervisor con acceso a funciones administrativas.</p>
             </div>
-
         </div>
-
     </section>
 
     {% endif %}
 
 </main>
 
-
 <script>
+    const ROL_USUARIO = "{{ rol }}";
+
+    async function cambiarEstadoActivo(equipoId, nuevoEstado) {
+        try {
+            const respuesta = await fetch(`/api/equipos/${equipoId}/estado`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estado: nuevoEstado })
+            });
+
+            const datos = await respuesta.json();
+
+            if (datos.error) {
+                alert(datos.error);
+                return;
+            }
+
+            actualizarEquipos();
+        } catch (error) {
+            console.error("Error al cambiar estado del activo:", error);
+        }
+    }
 
     // ------------------------------------------------------------
-    // Selector de equipo: solo se muestra el equipo elegido
+    // Selector de equipo
     // ------------------------------------------------------------
-
-    const TODOS = "__todos__";   // opción "Todos los equipos" del selector
-
-    let equiposDatos = [];   // última respuesta de /api/equipos
+    const TODOS = "__todos__";
+    let equiposDatos = [];
     let equipoSeleccionado = null;
-    let verTodosManual = false;   // estado de la casilla marcada por el usuario
+    let verTodosManual = false;
 
     try {
         equipoSeleccionado = sessionStorage.getItem("equipoSeleccionado");
-    } catch (e) { /* almacenamiento no disponible */ }
-
+    } catch (e) { }
 
     function crearRecuadro(etiqueta, idValor, esTexto) {
-
         const tarjeta = document.createElement("div");
         tarjeta.className = "dashboard-card";
 
@@ -299,12 +217,9 @@
         tarjeta.appendChild(valor);
 
         return tarjeta;
-
     }
 
-
     function crearBloqueEquipo(equipo) {
-
         const bloque = document.createElement("div");
         bloque.className = "equipo-bloque";
         bloque.id = "equipo-" + equipo.id;
@@ -325,6 +240,25 @@
         insignia.textContent = "Normal";
 
         titulo.append(nombre, tipo, insignia);
+
+        // Control individual para Técnico y Supervisor
+        if (ROL_USUARIO === "Tecnico" || ROL_USUARIO === "Supervisor") {
+            const contenedorAcciones = document.createElement("div");
+            contenedorAcciones.style.marginLeft = "auto";
+
+            const btnEstado = document.createElement("button");
+            btnEstado.id = "btn-control-" + equipo.id;
+            btnEstado.style.padding = "6px 14px";
+            btnEstado.style.fontSize = "0.85rem";
+            btnEstado.style.borderRadius = "6px";
+            btnEstado.style.cursor = "pointer";
+            btnEstado.style.border = "none";
+            btnEstado.style.fontWeight = "bold";
+
+            contenedorAcciones.appendChild(btnEstado);
+            titulo.appendChild(contenedorAcciones);
+        }
+
         bloque.appendChild(titulo);
 
         const grid = document.createElement("div");
@@ -345,16 +279,28 @@
         bloque.appendChild(grid);
 
         return bloque;
-
     }
 
-
-    // Actualiza solo los valores del bloque que ya está en pantalla
     function pintarValores(equipo) {
-
         const estado = document.getElementById("estado-" + equipo.id);
         if (estado) {
             estado.textContent = equipo.estado;
+        }
+
+        // Actualiza el botón de control individual dinámicamente
+        const btnControl = document.getElementById("btn-control-" + equipo.id);
+        if (btnControl) {
+            if (equipo.estado === "Operando") {
+                btnControl.textContent = "Detener activo";
+                btnControl.style.backgroundColor = "#ef4444";
+                btnControl.style.color = "#ffffff";
+                btnControl.onclick = () => cambiarEstadoActivo(equipo.id, "Detenido");
+            } else {
+                btnControl.textContent = "Encender activo";
+                btnControl.style.backgroundColor = "#10b981";
+                btnControl.style.color = "#ffffff";
+                btnControl.onclick = () => cambiarEstadoActivo(equipo.id, "Operando");
+            }
         }
 
         const insignia = document.getElementById("alerta-equipo-" + equipo.id);
@@ -366,13 +312,9 @@
         }
 
         equipo.variables.forEach(function(variable, indice) {
-
             const celda = document.getElementById("var-" + equipo.id + "-" + indice);
-            if (!celda) {
-                return;
-            }
+            if (!celda) return;
 
-            // Valor y unidad por separado (nombre en el encabezado de la tarjeta)
             celda.replaceChildren();
             const numero = document.createElement("span");
             numero.className = "valor-num";
@@ -394,33 +336,24 @@
                 }
                 tarjeta.title = variable.mensaje_alerta || "";
             }
-
         });
-
     }
-
 
     function esVistaTodos() {
         return equipoSeleccionado === TODOS;
     }
 
-
     function equipoActual() {
         return equiposDatos.find(function(e) { return e.id === equipoSeleccionado; });
     }
 
-
-    // En la vista "Todos los equipos" la casilla queda marcada y bloqueada
     function sincronizarCasilla() {
         const casilla = document.getElementById("alertas-todos");
         casilla.checked = esVistaTodos() || verTodosManual;
         casilla.disabled = esVistaTodos();
     }
 
-
-    // Reconstruye la lista del selector solo si cambió la lista de equipos
     function actualizarSelector() {
-
         const selector = document.getElementById("selector-equipo");
         const ids = equiposDatos.map(function(e) { return e.id; });
 
@@ -448,7 +381,6 @@
             selector.dataset.firma = firma;
         }
 
-        // Con un solo equipo disponible no existe la opción "Todos"
         if (equipoSeleccionado === TODOS && equiposDatos.length <= 1) {
             equipoSeleccionado = ids.length ? ids[0] : null;
         }
@@ -458,12 +390,9 @@
         }
 
         sincronizarCasilla();
-
     }
 
-
     function mostrarEquipoSeleccionado() {
-
         const contenedor = document.getElementById("equipos");
 
         if (!equiposDatos.length) {
@@ -472,12 +401,10 @@
             return;
         }
 
-        // Equipos que se muestran: todos o solo el elegido
         const visibles = esVistaTodos()
             ? equiposDatos
             : equiposDatos.filter(function(e) { return e.id === equipoSeleccionado; });
 
-        // Si cambió lo que debe verse, se reconstruyen los bloques
         const vista = visibles.map(function(e) { return e.id; }).join("|");
         if (contenedor.dataset.vista !== vista) {
             contenedor.replaceChildren();
@@ -487,50 +414,33 @@
             contenedor.dataset.vista = vista;
         }
 
-        // En cada ciclo solo se actualizan los valores
         visibles.forEach(pintarValores);
-
     }
 
-
     async function actualizarEquipos() {
-
         try {
-
             const respuesta = await fetch("/api/equipos");
-
-            if (!respuesta.ok) {
-                return;
-            }
+            if (!respuesta.ok) return;
 
             equiposDatos = await respuesta.json();
 
             actualizarSelector();
             mostrarEquipoSeleccionado();
-
         } catch (error) {
-
             console.error("Error obteniendo equipos:", error);
-
         }
-
     }
 
-
     document.getElementById("selector-equipo").addEventListener("change", function(evento) {
-
         equipoSeleccionado = evento.target.value;
-
         try {
             sessionStorage.setItem("equipoSeleccionado", equipoSeleccionado);
-        } catch (e) { /* almacenamiento no disponible */ }
+        } catch (e) { }
 
         sincronizarCasilla();
         mostrarEquipoSeleccionado();
         actualizarAlertas();
-
     });
-
 
     document.getElementById("alertas-todos").addEventListener("change", function(evento) {
         if (!esVistaTodos()) {
@@ -539,93 +449,43 @@
         actualizarAlertas();
     });
 
-
     async function actualizarConfiguracion() {
-
         try {
-
-            const respuesta =
-                await fetch("/api/configuracion");
-
-            const datos =
-                await respuesta.json();
-
-            const linea =
-                document.getElementById("nombre-linea");
+            const respuesta = await fetch("/api/configuracion");
+            const datos = await respuesta.json();
+            const linea = document.getElementById("nombre-linea");
 
             if (linea) {
-
-                linea.textContent =
-                    datos.nombre_linea;
-
-                document.getElementById(
-                    "velocidad-config"
-                ).textContent =
-                    datos.velocidad + " %";
-
-                document.getElementById(
-                    "temperatura-config"
-                ).textContent =
-                    datos.temperatura + " °C";
-
-                document.getElementById(
-                    "presion-config"
-                ).textContent =
-                    datos.presion + " bar";
+                linea.textContent = datos.nombre_linea;
+                document.getElementById("velocidad-config").textContent = datos.velocidad + " %";
+                document.getElementById("temperatura-config").textContent = datos.temperatura + " °C";
+                document.getElementById("presion-config").textContent = datos.presion + " bar";
             }
-
         } catch (error) {
-
             console.error(error);
-
         }
-
     }
 
-
     async function ejecutarFuncion(accion) {
-
         try {
-
-            const respuesta =
-                await fetch(
-                    "/api/funciones/" + accion,
-                    {
-                        method: "POST"
-                    }
-                );
-
-            const datos =
-                await respuesta.json();
+            const respuesta = await fetch("/api/funciones/" + accion, { method: "POST" });
+            const datos = await respuesta.json();
 
             if (datos.error) {
-
                 alert(datos.error);
-
                 return;
             }
 
             alert(datos.mensaje);
-
             actualizarEquipos();
-
         } catch (error) {
-
             console.error(error);
-
-            alert(
-                "No se pudo ejecutar la acción."
-            );
-
+            alert("No se pudo ejecutar la acción.");
         }
-
     }
 
-
     async function actualizarAlertas() {
-
         try {
-
             const respuestaEventos = await fetch("/api/alertas");
             if (!respuestaEventos.ok) return;
 
@@ -633,7 +493,6 @@
             const verTodos = esVistaTodos() || document.getElementById("alertas-todos").checked;
             const equipo = equipoActual();
 
-            // Resumen del estado ACTUAL (equipo elegido o todos)
             const origen = (verTodos || !equipo) ? equiposDatos : [equipo];
             const variables = origen.flatMap(function(e) { return e.variables || []; });
             const normales = variables.filter(function(v) { return v.severidad === "normal"; }).length;
@@ -642,7 +501,6 @@
             document.getElementById("resumen-alertas").innerHTML =
                 `<span>Normales: ${normales}</span><span>Alertas: ${alertas}</span><span>Críticas: ${criticas}</span>`;
 
-            // Historial de EVENTOS (filtrado por equipo)
             const contenedor = document.getElementById("lista-eventos-alerta");
             let eventos = datosEventos.eventos || [];
             if (!verTodos && equipo) {
@@ -675,7 +533,6 @@
         } catch (error) {
             console.error("Error actualizando alertas:", error);
         }
-
     }
 
     async function actualizarDashboard() {
@@ -684,41 +541,17 @@
         actualizarAlertas();
     }
 
-
-    // Primera actualización
-
     actualizarDashboard();
-
-
-    // Actualización cada 2 segundos
-
-    setInterval(
-        actualizarDashboard,
-        2000
-    );
-
+    setInterval(actualizarDashboard, 2000);
 </script>
 
-
 <script>
-
     if ("serviceWorker" in navigator) {
-
-        window.addEventListener(
-            "load",
-            function() {
-
-                navigator.serviceWorker.register(
-                    "{{ url_for('static', filename='service-worker.js') }}"
-                );
-
-            }
-        );
-
+        window.addEventListener("load", function() {
+            navigator.serviceWorker.register("{{ url_for('static', filename='service-worker.js') }}");
+        });
     }
-
 </script>
 
 </body>
-
 </html>

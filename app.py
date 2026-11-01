@@ -1,10 +1,10 @@
+# app.py
 import os
 import sqlite3
 import random
 import time
 from datetime import datetime
 
-# Se añade send_file para las descargas de PDF y CSV
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -170,8 +170,7 @@ def init_db():
 
 init_db()
 
-# Última severidad conocida por variable, para registrar cambios y no repetir
-# el mismo evento en cada consulta del dashboard.
+# Registro de alertas
 _severidad_alertas_anterior = {}
 
 
@@ -198,7 +197,7 @@ def registrar_cambio_alerta(equipo, variable, valor, unidad, resultado):
     conn.close()
 
 
-# SIMULACIÓN DEL GEMELO DIGITAL
+# SIMULACIÓN DEL GEMELO DIGITAL GLOBAL
 
 simulacion = {
     "temperatura": 70.0,
@@ -217,25 +216,36 @@ def actualizar_simulacion():
     if ahora - simulacion["ultimo_update"] >= 1:
         simulacion["ultimo_update"] = ahora
 
-        simulacion["temperatura"] = max(60, min(85, simulacion["temperatura"] + random.uniform(-0.8, 0.8)))
-        simulacion["presion"] = max(2.5, min(4.5, simulacion["presion"] + random.uniform(-0.08, 0.08)))
-        simulacion["velocidad"] = max(60, min(100, simulacion["velocidad"] + random.uniform(-2, 2)))
-        simulacion["nivel"] = max(0, min(100, simulacion["nivel"] + random.uniform(-1.5, 1.5)))
-
         if simulacion["estado"] == "Operando":
+            simulacion["temperatura"] = max(60, min(85, simulacion["temperatura"] + random.uniform(-0.8, 0.8)))
+            simulacion["presion"] = max(2.5, min(4.5, simulacion["presion"] + random.uniform(-0.08, 0.08)))
+            simulacion["velocidad"] = max(60, min(100, simulacion["velocidad"] + random.uniform(-2, 2)))
+            simulacion["nivel"] = max(0, min(100, simulacion["nivel"] + random.uniform(-1.5, 1.5)))
             simulacion["produccion"] += random.randint(1, 4)
+            simulacion["eficiencia"] = random.uniform(88, 97)
+        else:
+            # Enfriamiento global de simulación base al estar detenido
+            simulacion["temperatura"] = max(25.0, simulacion["temperatura"] - 1.0)
+            simulacion["velocidad"] = 0.0
+            simulacion["presion"] = max(0.0, simulacion["presion"] - 0.5)
 
-        simulacion["eficiencia"] = random.uniform(88, 97)
 
-
-# SIMULACIÓN DE LOS EQUIPOS (definidos en equipos.py)
-
+# ESTADO POR ACTIVO INDIVIDUAL Y SIMULACIÓN FÍSICA APLICADA
 valores_equipos = {}
 control_equipos = {"ultimo_update": time.time()}
+estados_equipos = {}  # Guarda estados individuales ('Operando', 'Detenido', etc.)
+
+
+def obtener_estado_activo(equipo_id):
+    """Retorna el estado operativo efectivo del activo considerando paros globales."""
+    if simulacion["estado"] in ["Detenido", "Emergencia"]:
+        return simulacion["estado"]
+    return estados_equipos.get(equipo_id, "Operando")
 
 
 def inicializar_equipos():
     for equipo in EQUIPOS:
+        estados_equipos[equipo["id"]] = "Operando"
         for variable in equipo["variables"]:
             if "calculo" in variable or variable.get("tipo") == "texto":
                 continue
@@ -254,26 +264,139 @@ def actualizar_equipos():
         return
     control_equipos["ultimo_update"] = ahora
 
-    operando = simulacion["estado"] == "Operando"
-
     for equipo in EQUIPOS:
+        estado_activo = obtener_estado_activo(equipo["id"])
+        esta_operando = (estado_activo == "Operando")
+
         for variable in equipo["variables"]:
             if "calculo" in variable or variable.get("tipo") == "texto":
                 continue
 
             clave = f'{equipo["id"]}.{variable["clave"]}'
+            clave_var = variable["clave"].lower()
 
+            # 1. Contadores (incrementan solo al estar operando)
             if variable.get("tipo") == "contador":
-                if operando:
+                if esta_operando:
                     minimo, maximo = variable["incremento"]
                     valores_equipos[clave] += random.uniform(minimo, maximo)
-            else:
+                continue
+
+            # 2. Variables térmicas (calentamiento y enfriamiento paulatino)
+            es_termica = any(t in clave_var for t in ["temp", "temperatura", "zona", "pico", "agua"])
+            if es_termica:
+                temp_actual = valores_equipos[clave]
+                min_nom = variable["min"]
+                max_nom = variable["max"]
+
+                if esta_operando:
+                    if temp_actual < min_nom:
+                        # Calentamiento paulatino hasta alcanzar el rango nominal
+                        valores_equipos[clave] = min(min_nom, temp_actual + random.uniform(1.0, 2.5))
+                    elif temp_actual > max_nom:
+                        # Estabilización progresiva hacia el rango máximo
+                        valores_equipos[clave] = max(max_nom, temp_actual - random.uniform(0.5, 1.0))
+                    else:
+                        # Operación nominal con oscilación suave
+                        rango = max_nom - min_nom
+                        nuevo = temp_actual + random.uniform(-0.05, 0.05) * rango
+                        valores_equipos[clave] = max(min_nom, min(max_nom, nuevo))
+                else:
+                    # Enfriamiento paulatino hacia temperatura ambiente (~25.0 °C)
+                    if temp_actual > 25.0:
+                        valores_equipos[clave] = max(25.0, temp_actual - random.uniform(0.5, 1.2))
+                    elif temp_actual < 25.0:
+                        valores_equipos[clave] = min(25.0, temp_actual + random.uniform(0.2, 0.5))
+                continue
+
+            # 3. Variables mecánicas y eléctricas (caen a 0 inmediatamente al detenerse)
+            if esta_operando:
                 rango = variable["max"] - variable["min"]
                 nuevo = valores_equipos[clave] + random.uniform(-0.05, 0.05) * rango
                 valores_equipos[clave] = max(variable["min"], min(variable["max"], nuevo))
+            else:
+                valores_equipos[clave] = 0.0
 
 
 inicializar_equipos()
+
+
+def obtener_estado_equipos_completo():
+    actualizar_simulacion()
+    actualizar_equipos()
+
+    resultado = []
+
+    for equipo in EQUIPOS:
+        estado_activo = obtener_estado_activo(equipo["id"])
+        valores = {}
+
+        for variable in equipo["variables"]:
+            if "calculo" in variable or variable.get("tipo") == "texto":
+                continue
+            valores[variable["clave"]] = valores_equipos[f'{equipo["id"]}.{variable["clave"]}']
+
+        for variable in equipo["variables"]:
+            if "calculo" in variable:
+                valores[variable["clave"]] = variable["calculo"](valores)
+
+        variables_salida = []
+        variables_dict_influx = {}
+
+        for variable in equipo["variables"]:
+            clave_variable = variable["clave"]
+
+            if variable.get("tipo") == "texto":
+                valor = "Sin detección" if (estado_activo == "Detenido" and "atasco" in clave_variable) else variable["valor"]
+            else:
+                decimales = variable.get("decimales", 1)
+                valor = round(valores[variable["clave"]], decimales)
+                if decimales == 0:
+                    valor = int(valor)
+
+            regla = REGLAS_ALERTAS.get(equipo["id"], {}).get(clave_variable)
+
+            # Si el activo está detenido, evitar disparar alertas por caída a 0 RPM
+            if estado_activo in ["Detenido", "Inactivo"]:
+                evaluacion = {"severidad": "normal", "mensaje": "Equipo en paro programado"}
+            else:
+                evaluacion = evaluar_valor(valor, regla) if regla else {
+                    "severidad": "sin_regla",
+                    "mensaje": "Variable sin umbral configurado"
+                }
+
+            if regla and estado_activo == "Operando":
+                registrar_cambio_alerta(equipo, variable, valor, variable["unidad"], evaluacion)
+
+            variables_salida.append({
+                "clave": clave_variable,
+                "etiqueta": variable["etiqueta"],
+                "valor": valor,
+                "unidad": variable["unidad"],
+                "severidad": evaluacion["severidad"],
+                "mensaje_alerta": evaluacion["mensaje"]
+            })
+
+            variables_dict_influx[clave_variable] = valor
+
+        # Transmitir diccionario completo a InfluxDB Cloud
+        influx_service.registrar_metricas_activo(
+            linea_id=1,
+            activo_id=equipo["id"],
+            variables_dict=variables_dict_influx,
+            estado=estado_activo
+        )
+
+        resultado.append({
+            "id": equipo["id"],
+            "nombre": equipo["nombre"],
+            "tipo": equipo["tipo"],
+            "estado": estado_activo,
+            "variables": variables_salida
+        })
+
+    return resultado
+
 
 # RUTAS DE AUTENTICACIÓN Y REGISTRO
 
@@ -374,12 +497,31 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
+
 # RUTAS API REST
+
 @app.route("/api/equipos")
 def api_equipos():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
     return jsonify(obtener_estado_equipos_completo())
+
+
+@app.route("/api/equipos/<equipo_id>/estado", methods=["POST"])
+def cambiar_estado_equipo(equipo_id):
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    rol = session.get("rol")
+    if rol not in ["Tecnico", "Supervisor"]:
+        return jsonify({"error": "No tienes permisos para realizar esta acción."}), 403
+
+    datos = request.get_json() or {}
+    nuevo_estado = datos.get("estado", "Operando")
+
+    estados_equipos[equipo_id] = nuevo_estado
+    return jsonify({"mensaje": f"Estado del activo {equipo_id} cambiado a {nuevo_estado}."})
+
 
 @app.route("/api/variables")
 def api_variables():
@@ -464,7 +606,6 @@ def api_alertas():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
 
-    # Actualiza las mediciones y el estado de las reglas antes de consultar eventos.
     actualizar_simulacion()
     actualizar_equipos()
     conn = get_db_connection()
@@ -523,6 +664,7 @@ def funciones(accion):
         return jsonify({"mensaje": "Paro de emergencia virtual activado."})
 
     return jsonify({"error": "Acción no reconocida."}), 400
+
 
 # RUTAS DE AUDITORÍA Y EXPORTACIÓN DE REPORTES (SPRINT 2)
 
@@ -601,73 +743,6 @@ def exportar_auditoria(linea_id, formato):
     flash("Formato de exportación no válido.", "danger")
     return redirect(url_for("dashboard"))
 
-def obtener_estado_equipos_completo():
-    actualizar_simulacion()
-    actualizar_equipos()
-
-    resultado = []
-
-    for equipo in EQUIPOS:
-        valores = {}
-        for variable in equipo["variables"]:
-            if "calculo" in variable or variable.get("tipo") == "texto":
-                continue
-            valores[variable["clave"]] = valores_equipos[f'{equipo["id"]}.{variable["clave"]}']
-
-        for variable in equipo["variables"]:
-            if "calculo" in variable:
-                valores[variable["clave"]] = variable["calculo"](valores)
-
-        variables_salida = []
-        variables_dict_influx = {}
-
-        for variable in equipo["variables"]:
-            if variable.get("tipo") == "texto":
-                valor = variable["valor"]
-            else:
-                decimales = variable.get("decimales", 1)
-                valor = round(valores[variable["clave"]], decimales)
-                if decimales == 0:
-                    valor = int(valor)
-
-            clave_variable = variable["clave"]
-            regla = REGLAS_ALERTAS.get(equipo["id"], {}).get(clave_variable)
-            evaluacion = evaluar_valor(valor, regla) if regla else {
-                "severidad": "sin_regla",
-                "mensaje": "Variable sin umbral configurado"
-            }
-
-            if regla:
-                registrar_cambio_alerta(equipo, variable, valor, variable["unidad"], evaluacion)
-
-            variables_salida.append({
-                "clave": clave_variable,
-                "etiqueta": variable["etiqueta"],
-                "valor": valor,
-                "unidad": variable["unidad"],
-                "severidad": evaluacion["severidad"],
-                "mensaje_alerta": evaluacion["mensaje"]
-            })
-
-            variables_dict_influx[clave_variable] = valor
-
-        # Enviar diccionario completo de variables a InfluxDB
-        influx_service.registrar_metricas_activo(
-            linea_id=1,
-            activo_id=equipo["id"],
-            variables_dict=variables_dict_influx,
-            estado=simulacion["estado"]
-        )
-
-        resultado.append({
-            "id": equipo["id"],
-            "nombre": equipo["nombre"],
-            "tipo": equipo["tipo"],
-            "estado": simulacion["estado"],
-            "variables": variables_salida
-        })
-
-    return resultado
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

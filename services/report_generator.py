@@ -1,3 +1,4 @@
+# services/report_generator.py
 import io
 import pandas as pd
 from datetime import datetime
@@ -5,6 +6,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+
 
 def generar_pdf_auditoria(nombre_linea, dictamen_linea, descripcion_dictamen, lista_activos, fecha_str=None, auditor=None):
     buffer = io.BytesIO()
@@ -57,7 +59,7 @@ def generar_pdf_auditoria(nombre_linea, dictamen_linea, descripcion_dictamen, li
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
         fontSize=10,
-        alignment=1  # 1 = Centrado
+        alignment=1  # Centrado
     )
 
     # 1. Encabezado del Informe
@@ -65,12 +67,14 @@ def generar_pdf_auditoria(nombre_linea, dictamen_linea, descripcion_dictamen, li
     story.append(Paragraph(f"<b>Línea:</b> {nombre_linea} | <b>Fecha:</b> {fecha_str} | <b>Auditor:</b> {auditor or 'Sistema PWA'}", subtitle_style))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceAfter=10))
 
-    # 2. Resumen Ejecutivo
+    # 2. Resumen Ejecutivo con insignia adaptable según estado
     color_dictamen = colors.HexColor('#10b981')
     if "IRREGULAR" in dictamen_linea:
         color_dictamen = colors.HexColor('#f59e0b')
     elif "ERROR" in dictamen_linea or "FALLA" in dictamen_linea:
         color_dictamen = colors.HexColor('#ef4444')
+    elif "DETENIDA" in dictamen_linea or "PARCIAL" in dictamen_linea:
+        color_dictamen = colors.HexColor('#475569')
 
     dictamen_style = ParagraphStyle(
         'DictamenStyle',
@@ -145,6 +149,7 @@ def generar_pdf_auditoria(nombre_linea, dictamen_linea, descripcion_dictamen, li
     doc.build(story)
     buffer.seek(0)
     return buffer
+
 
 def generar_csv_auditoria(nombre_linea, dictamen_linea, lista_activos):
     filas = []
