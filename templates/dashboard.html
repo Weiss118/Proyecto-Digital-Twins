@@ -75,6 +75,7 @@
     </div>
 
     <div class="navbar-user">
+        {% if organizacion %}<span>{{ organizacion }}</span>{% endif %}
         <span>{{ nombre }}</span>
         <span>{{ numero_empleado }}</span>
         <span class="role-badge">{{ rol }}</span>

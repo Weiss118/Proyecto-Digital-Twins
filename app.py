@@ -59,6 +59,20 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # Organizaciones (tenants): cada cliente registra la suya
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS organizaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            fecha_registro TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    try:
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN organizacion_id INTEGER REFERENCES organizaciones(id)")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS activos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,6 +155,15 @@ def init_db():
                 INSERT INTO usuarios (numero_empleado, nombre, password, rol_id)
                 VALUES (?, ?, ?, ?)
             """, (numero, nombre, generate_password_hash(password), rol_id))
+
+    # Los usuarios existentes (demo) quedan en una organización por defecto
+    cursor.execute("INSERT OR IGNORE INTO organizaciones (nombre) VALUES ('Organización Demo')")
+    cursor.execute("SELECT id FROM organizaciones WHERE nombre = 'Organización Demo'")
+    org_demo_id = cursor.fetchone()["id"]
+    cursor.execute(
+        "UPDATE usuarios SET organizacion_id = ? WHERE organizacion_id IS NULL",
+        (org_demo_id,)
+    )
 
     activos = [
         ("Motor principal", "Motor", "Operando"),
@@ -415,9 +438,11 @@ def login():
 
         conn = get_db_connection()
         usuario = conn.execute("""
-            SELECT usuarios.*, roles.nombre AS rol
+            SELECT usuarios.*, roles.nombre AS rol,
+                   organizaciones.nombre AS organizacion
             FROM usuarios
             INNER JOIN roles ON usuarios.rol_id = roles.id
+            LEFT JOIN organizaciones ON usuarios.organizacion_id = organizaciones.id
             WHERE usuarios.numero_empleado = ? AND usuarios.activo = 1
         """, (numero_empleado,)).fetchone()
         conn.close()
@@ -436,6 +461,8 @@ def login():
                 session["numero_empleado"] = usuario["numero_empleado"]
                 session["nombre"] = usuario["nombre"]
                 session["rol"] = usuario["rol"]
+                session["organizacion_id"] = usuario["organizacion_id"]
+                session["organizacion"] = usuario["organizacion"]
                 return redirect(url_for("dashboard"))
 
         flash("Número de empleado o contraseña incorrectos.", "danger")
@@ -479,6 +506,71 @@ def registro():
     return render_template("registro.html", roles=roles)
 
 
+@app.route("/registro-organizacion", methods=["GET", "POST"])
+def registro_organizacion():
+    """Historia #3278: un nuevo cliente registra su organización.
+
+    Crea la organización y su primer usuario administrador. El rol del
+    administrador es siempre Supervisor y no se puede elegir en el formulario.
+    """
+    datos = {
+        "organizacion": (request.form.get("organizacion") or "").strip(),
+        "nombre": (request.form.get("nombre") or "").strip(),
+        "numero_empleado": (request.form.get("numero_empleado") or "").strip(),
+    }
+
+    if request.method == "POST":
+        password = request.form.get("password") or ""
+        confirmar = request.form.get("confirmar_password") or ""
+        error = None
+
+        if not all(datos.values()) or not password:
+            error = "Por favor completa todos los campos del formulario."
+        elif len(password) < 6:
+            error = "La contraseña debe tener al menos 6 caracteres."
+        elif password != confirmar:
+            error = "Las contraseñas no coinciden."
+
+        if error is None:
+            conn = get_db_connection()
+            try:
+                if conn.execute(
+                    "SELECT id FROM organizaciones WHERE nombre = ?", (datos["organizacion"],)
+                ).fetchone():
+                    error = "Ya existe una organización con ese nombre."
+                elif conn.execute(
+                    "SELECT id FROM usuarios WHERE numero_empleado = ?", (datos["numero_empleado"],)
+                ).fetchone():
+                    error = "El número de empleado ya se encuentra registrado."
+                else:
+                    rol = conn.execute(
+                        "SELECT id FROM roles WHERE nombre = 'Supervisor'"
+                    ).fetchone()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO organizaciones (nombre) VALUES (?)", (datos["organizacion"],)
+                    )
+                    cursor.execute("""
+                        INSERT INTO usuarios (numero_empleado, nombre, password, rol_id, organizacion_id)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (datos["numero_empleado"], datos["nombre"],
+                          generate_password_hash(password), rol["id"], cursor.lastrowid))
+                    conn.commit()
+            except sqlite3.IntegrityError:
+                conn.rollback()
+                error = "No se pudo registrar la organización. Verifica los datos e intenta de nuevo."
+            finally:
+                conn.close()
+
+        if error is None:
+            flash("Organización registrada. Inicia sesión con tu número de empleado.", "info")
+            return redirect(url_for("login"))
+
+        flash(error, "danger")
+
+    return render_template("registro_organizacion.html", datos=datos)
+
+
 @app.route("/dashboard")
 def dashboard():
     if "usuario_id" not in session:
@@ -488,7 +580,8 @@ def dashboard():
         "dashboard.html",
         nombre=session["nombre"],
         numero_empleado=session["numero_empleado"],
-        rol=session["rol"]
+        rol=session["rol"],
+        organizacion=session.get("organizacion")
     )
 
 
