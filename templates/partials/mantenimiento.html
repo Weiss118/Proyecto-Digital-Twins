@@ -1,0 +1,50 @@
+<section class="dashboard-section" id="sec-mantenimiento"
+         data-puede-editar="{{ '1' if rol in roles_mantenimiento else '0' }}">
+    <h2>Calendario de mantenimiento</h2>
+
+    <div class="mant-cabecera">
+        <label for="mant-equipo">Activo</label>
+        <select id="mant-equipo" aria-label="Activo del calendario de mantenimiento"></select>
+        {% if rol in roles_mantenimiento %}
+        <button type="button" class="dt-btn" id="mant-nuevo">+ Programar mantenimiento</button>
+        {% endif %}
+    </div>
+
+    <div class="cards-grid mant-resumen">
+        <div class="dashboard-card">
+            <h3>Último mantenimiento realizado</h3>
+            <div class="value" id="mant-ultimo">--</div>
+            <small id="mant-ultimo-det"></small>
+        </div>
+        <div class="dashboard-card">
+            <h3>Próximo mantenimiento</h3>
+            <div class="value" id="mant-proximo">--</div>
+            <small id="mant-proximo-det"></small>
+        </div>
+    </div>
+
+    <div class="mant-nav">
+        <button type="button" class="dt-btn secundario" id="mant-prev" aria-label="Mes anterior">‹</button>
+        <strong id="mant-mes">--</strong>
+        <button type="button" class="dt-btn secundario" id="mant-sig" aria-label="Mes siguiente">›</button>
+        <button type="button" class="dt-btn secundario" id="mant-hoy">Hoy</button>
+    </div>
+
+    <div class="mant-leyenda">
+        <span><span class="mant-ev programado">Programado</span></span>
+        <span><span class="mant-ev realizado">Realizado</span></span>
+        <span><span class="mant-ev vencido">Vencido</span></span>
+    </div>
+
+    <div class="mant-calendario" id="mant-calendario" role="grid" aria-label="Calendario mensual"></div>
+    <p id="mant-msg" class="dt-msg" role="status"></p>
+    <div id="mant-panel" class="mant-panel" hidden></div>
+
+    <h3 style="margin-top:22px">Resumen por activo</h3>
+    <div class="tabla-scroll">
+        <table class="tabla-mant">
+            <thead><tr><th>Activo</th><th>Último realizado</th><th>Próximo</th><th></th></tr></thead>
+            <tbody id="mant-resumen-filas"></tbody>
+        </table>
+    </div>
+</section>

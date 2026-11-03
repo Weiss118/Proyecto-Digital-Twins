@@ -1,0 +1,34 @@
+{% if rol in roles_umbrales %}
+<section class="dashboard-section" id="sec-umbrales">
+    <h2>Umbrales de medición</h2>
+    <p class="dashboard-subtitle">Define los límites de alerta y críticos de cada medición. Los cambios aplican de inmediato al sistema de alertas y quedan registrados.</p>
+
+    <div class="selector-equipo">
+        <label for="umbral-equipo">Equipo</label>
+        <select id="umbral-equipo" aria-label="Equipo cuyos umbrales se configuran"></select>
+    </div>
+
+    <div class="tabla-scroll">
+        <table class="tabla-umbrales" id="tabla-umbrales">
+            <thead>
+                <tr>
+                    <th>Medición</th>
+                    <th>Crítico mín.</th>
+                    <th>Alerta mín.</th>
+                    <th>Alerta máx.</th>
+                    <th>Crítico máx.</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="umbral-filas"></tbody>
+        </table>
+    </div>
+    <p id="umbral-msg" class="dt-msg" role="status"></p>
+    <p class="dashboard-subtitle">Un campo vacío significa «sin ese límite». Orden requerido: crítico mín. ≤ alerta mín. ≤ alerta máx. ≤ crítico máx.</p>
+
+    <details class="umb-historial" id="umbral-historial-detalle">
+        <summary>Últimos cambios de umbrales</summary>
+        <ul id="umbral-historial"></ul>
+    </details>
+</section>
+{% endif %}

@@ -8,6 +8,7 @@
 
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/extras.css') }}">
 
     <style>
         .equipo-bloque {
@@ -114,6 +115,8 @@
         <p class="dashboard-subtitle">Las alertas son indicaciones del gemelo digital. No sustituyen los sistemas de seguridad ni ejecutan paros físicos.</p>
     </section>
 
+    {% include "partials/mantenimiento.html" %}
+
     {% if rol == "Tecnico" or rol == "Supervisor" %}
 
     <section class="dashboard-section">
@@ -144,6 +147,8 @@
             <p><strong>Presión configurada:</strong> <span id="presion-config">--</span></p>
         </div>
     </section>
+
+    {% include "partials/umbrales.html" %}
 
     {% endif %}
 
@@ -545,6 +550,11 @@
     actualizarDashboard();
     setInterval(actualizarDashboard, 2000);
 </script>
+
+<script src="{{ url_for('static', filename='js/dt_util.js') }}"></script>
+<script src="{{ url_for('static', filename='js/metricas_foco.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mantenimiento.js') }}"></script>
+<script src="{{ url_for('static', filename='js/umbrales_config.js') }}"></script>
 
 <script>
     if ("serviceWorker" in navigator) {

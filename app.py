@@ -16,6 +16,10 @@ from services.influxDB import InfluxDBService
 from services.report_generator import generar_pdf_auditoria, generar_csv_auditoria
 from logic.auditoria_logic import evaluar_estado_linea
 
+# EXTENSIONES: umbrales configurables por rol y calendario de mantenimientos
+import umbrales
+import mantenimientos
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "clave-secreta-gemelo-digital-dev")
 
@@ -23,6 +27,9 @@ DB_NAME = "database.db"
 
 # Inicializar servicio InfluxDB Cloud
 influx_service = InfluxDBService()
+
+app.register_blueprint(umbrales.bp)
+app.register_blueprint(mantenimientos.bp)
 
 
 def get_db_connection():
@@ -377,7 +384,8 @@ def obtener_estado_equipos_completo():
                 if decimales == 0:
                     valor = int(valor)
 
-            regla = REGLAS_ALERTAS.get(equipo["id"], {}).get(clave_variable)
+            # Umbral vigente: el personalizado (si un usuario autorizado lo cambió) o el predeterminado
+            regla = umbrales.obtener_regla(equipo["id"], clave_variable)
 
             # Si el activo está detenido, evitar disparar alertas por caída a 0 RPM
             if estado_activo in ["Detenido", "Inactivo"]:
