@@ -1,14 +1,15 @@
 import random
+import os
 from datetime import datetime, timezone
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 class InfluxDBService:
     def __init__(self):
-        self.url = "https://us-east-1-1.aws.cloud2.influxdata.com"
-        self.token = "YGfyFK9H_UEmCOgKFEPo9THbBe9l_8cYhp00G3GwFRZKTkevrsvAA4NPYwjNltbD9T2wR48XHdr5BqZzPVsIKg=="
-        self.org = "UABC_Manufactura"
-        self.bucket = "telemetria_gemelos"
+        self.url = os.environ.get("INFLUX_URL")
+        self.token = os.environ.get("INFLUX_TOKEN")
+        self.org = os.environ.get("INFLUX_ORG")
+        self.bucket = os.environ.get("INFLUX_BUCKET")
         self.connected = False
         self._conectar()
 
