@@ -59,16 +59,194 @@
         .alertas-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
         .alertas-resumen span { padding: 8px 12px; background: #f1f5f9; border-radius: 6px; }
 
-        /* Selector de equipo y presentación nombre / valor / unidad */
-        .selector-equipo { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 12px 0 20px; }
-        .selector-equipo label { font-weight: 700; color: #0f172a; }
-        .selector-equipo select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; background: #fff; min-width: 260px; max-width: 100%; }
+        /* Panel de Líneas de Trabajo */
+        .panel-lineas {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        .selector-linea {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+        }
+        .selector-linea label {
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .selector-linea select {
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #fff;
+            min-width: 260px;
+            max-width: 100%;
+        }
+
+        /* Ventanas Modales */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15,23,42,0.65);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-contenido-diagrama {
+            background: #fff;
+            border-radius: 12px;
+            padding: 28px;
+            width: 95vw;
+            max-width: 1150px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+
+        /* Layout de 2 Columnas para Selección y Diagrama */
+        .diagrama-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 24px;
+            margin-top: 18px;
+        }
+        .panel-seleccion-activos {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            background: #ffffff;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        .item-activo-btn {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+        .item-activo-btn:hover {
+            background: #eff6ff;
+            border-color: #2563eb;
+            color: #1d4ed8;
+        }
+
+        /* Lienzo Canvas del Diagrama de Bloques */
+        .canvas-flujo {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 24px;
+            min-height: 380px;
+            max-height: 420px;
+            overflow-x: auto;
+            overflow-y: auto;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-content: flex-start;
+        }
+        .bloque-flujo {
+            background: #ffffff;
+            border: 2px solid #0f172a;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            position: relative;
+            min-width: 150px;
+            text-align: center;
+            font-weight: bold;
+            color: #0f172a;
+            font-size: 1rem;
+        }
+        .bloque-flujo .btn-eliminar-bloque {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        .flecha-conector {
+            font-size: 28px;
+            color: #475569;
+            font-weight: bold;
+            user-select: none;
+        }
+
+        /* SISTEMA DE NOTIFICACIONES TOAST (Reemplazo de alert()) */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .toast {
+            min-width: 280px;
+            max-width: 400px;
+            padding: 14px 20px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            animation: slideInToast 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .toast-exito { background-color: #10b981; border-left: 6px solid #047857; }
+        .toast-error { background-color: #ef4444; border-left: 6px solid #b91c1c; }
+        .toast-info { background-color: #2563eb; border-left: 6px solid #1d4ed8; }
+
+        @keyframes slideInToast {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
         .dashboard-card .value .valor-unidad { font-size: 0.55em; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
-        .alertas-filtro { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: .95rem; }
     </style>
 </head>
 
 <body>
+
+<!-- Contenedor dinámico de avisos Toast -->
+<div id="toast-container" class="toast-container"></div>
 
 <nav class="navbar">
     <div class="navbar-title">
@@ -86,33 +264,42 @@
 
 <main class="dashboard-container">
 
-    <h1>PRUEBA GEMELO DIGITAL</h1>
-    <p class="dashboard-subtitle">Sistema virtual de monitoreo y simulación industrial</p>
+    <h1>MONITOREO DE LÍNEAS DE TRABAJO</h1>
+    <p class="dashboard-subtitle">Sistema virtual de monitoreo, simulación y gestión industrial</p>
 
+    <!-- Selector Global y Control Administrativo de Líneas -->
     <section class="dashboard-section">
-        <h2>Visualización y Monitoreo</h2>
+        <div class="panel-lineas">
+            <div class="selector-linea">
+                <label for="selector-linea">Línea de Trabajo Activa:</label>
+                <select id="selector-linea" onchange="cambiarLineaActiva()" aria-label="Seleccionar Línea de Trabajo"></select>
+            </div>
 
-        <div class="selector-equipo">
-            <label for="selector-equipo">Equipo a monitorear</label>
-            <select id="selector-equipo" aria-label="Seleccionar equipo"></select>
-        </div>
-
-        <div id="equipos" class="equipos-lista">
-            Cargando equipos...
+            {% if rol == "Supervisor" %}
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-primary" onclick="abrirModalCrearLinea()">+ Crear Línea de Trabajo</button>
+                <button class="btn-primary" style="background: #475569;" onclick="abrirModalPersonal()">👤 Asignar Personal</button>
+            </div>
+            {% endif %}
         </div>
     </section>
 
+    <!-- Secuencia Operativa de Activos de la Línea -->
     <section class="dashboard-section">
-        <h2>Alertas y anomalías detectadas</h2>
-        <label class="alertas-filtro">
-            <input type="checkbox" id="alertas-todos">
-            Ver eventos de todos los equipos
-        </label>
+        <h2>Secuencia Operativa de la Línea</h2>
+        <div id="equipos" class="equipos-lista">
+            Cargando activos de la línea de trabajo...
+        </div>
+    </section>
+
+    <!-- Alertas Exclusivas de la Línea Activa -->
+    <section class="dashboard-section">
+        <h2>Alertas de la Línea Activa</h2>
         <div id="resumen-alertas" class="alertas-resumen">
             <span>Normales: --</span><span>Alertas: --</span><span>Críticas: --</span>
         </div>
-        <div id="lista-eventos-alerta">Cargando eventos...</div>
-        <p class="dashboard-subtitle">Las alertas son indicaciones del gemelo digital. No sustituyen los sistemas de seguridad ni ejecutan paros físicos.</p>
+        <div id="lista-eventos-alerta">Cargando eventos de la línea...</div>
+        <p class="dashboard-subtitle">Las alertas corresponden únicamente a los activos configurados en esta línea de trabajo.</p>
     </section>
 
     {% include "partials/mantenimiento.html" %}
@@ -120,7 +307,7 @@
     {% if rol == "Tecnico" or rol == "Supervisor" %}
 
     <section class="dashboard-section">
-        <h2>Control del Sistema</h2>
+        <h2>Control de Línea</h2>
         <div class="action-buttons">
             <button onclick="ejecutarFuncion('encender')">Encender sistema</button>
             <button onclick="ejecutarFuncion('detener')">Detener sistema</button>
@@ -130,11 +317,16 @@
 
     <section class="dashboard-section">
         <h2>Auditoría de Línea e Informes</h2>
-        <div class="action-buttons">
-            <a href="{{ url_for('ver_auditoria_linea', linea_id=1) }}" 
-               style="display: inline-block; padding: 12px 20px; background-color: #2563eb; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; transition: background 0.2s;">
-                📋 Consultar Auditoría y Generar Reporte (PDF / CSV)
-            </a>
+        <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onclick="exportarAuditoriaLinea('pdf')" style="padding: 12px 20px; background-color: #2563eb; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                📄 Reporte PDF (Línea Activa)
+            </button>
+            <button onclick="exportarAuditoriaLinea('csv')" style="padding: 12px 20px; background-color: #10b981; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                📊 Reporte CSV (Línea Activa)
+            </button>
+            <button onclick="exportarReporteConsolidado()" style="padding: 12px 20px; background-color: #0f172a; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                🌐 Reporte Consolidado (N Líneas / Zonas)
+            </button>
         </div>
     </section>
 
@@ -172,41 +364,130 @@
 
 </main>
 
+<!-- Modal Diagrama de Flujo: Crear Línea de Trabajo (Solo Supervisor) -->
+<div id="modal-linea" class="modal">
+    <div class="modal-contenido-diagrama">
+        <h3>Crear Línea de Trabajo</h3>
+        <p class="dashboard-subtitle">Haz clic en los activos de la izquierda para colocarlos ordenadamente en el diagrama de flujo.</p>
+        
+        <div style="margin-top: 10px;">
+            <label style="font-weight: bold; display: block;">Nombre de la Línea:</label>
+            <input type="text" id="nueva-linea-nombre" placeholder="Ej. Línea 1 - Embalaje y CNC" style="width: 100%; max-width: 400px; padding: 10px 14px; margin-top: 4px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 1rem;">
+        </div>
+
+        <div class="diagrama-grid">
+            <!-- Panel Izquierdo: Selección de Activos Disponibles -->
+            <div>
+                <label style="font-weight: bold; display: block; margin-bottom: 6px;">Seleccionar Activos:</label>
+                <div id="panel-activos-disponibles" class="panel-seleccion-activos"></div>
+            </div>
+
+            <!-- Panel Derecho: Lienzo Visual con Diagrama de Flujo -->
+            <div>
+                <label style="font-weight: bold; display: block; margin-bottom: 6px;">Diagrama de Flujo de la Secuencia:</label>
+                <div id="canvas-flujo" class="canvas-flujo"></div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+            <button onclick="cerrarModalCrearLinea()" style="padding: 12px 20px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; font-weight: bold;">Cancelar</button>
+            <button onclick="guardarNuevaLinea()" class="btn-primary" style="padding: 12px 24px; font-size: 1rem;">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Asignación de Personal (Solo Supervisor) -->
+<div id="modal-personal" class="modal">
+    <div class="modal-contenido-diagrama" style="max-width: 500px;">
+        <h3>Asignar Personal a la Línea</h3>
+        <p class="dashboard-subtitle">Vincula operarios y técnicos a esta línea de trabajo.</p>
+        
+        <label style="font-weight: bold; display: block; margin-top: 10px;">Rol asignado en celda:</label>
+        <input type="text" id="personal-rol" placeholder="Ej. Operador Principal / Líder de Celda" style="width: 100%; padding: 8px; margin: 6px 0 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <button onclick="cerrarModalPersonal()" style="padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer;">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const ROL_USUARIO = "{{ rol }}";
+    let lineaActivaId = 1;
+    let lineasRegistradas = [];
+    let equiposDatos = [];
+    let secuenciaDiagrama = [];
+
+    // Función global para mostrar avisos Toast elegantes en lugar de alert()
+    function mostrarToast(mensaje, tipo = "exito") {
+        const contenedor = document.getElementById("toast-container");
+        const toast = document.createElement("div");
+        toast.className = `toast toast-${tipo}`;
+        
+        const icono = tipo === "exito" ? "✓" : tipo === "error" ? "✕" : "ℹ";
+        toast.innerHTML = `<span style="font-size:1.1rem; font-weight:bold;">${icono}</span> <span>${mensaje}</span>`;
+
+        contenedor.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = "0";
+            toast.style.transform = "translateX(120%)";
+            toast.style.transition = "all 0.3s ease";
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
+    }
+
+    async function cargarLineas() {
+        try {
+            const respuesta = await fetch("/api/lineas");
+            lineasRegistradas = await respuesta.json();
+
+            const selector = document.getElementById("selector-linea");
+            selector.replaceChildren();
+
+            lineasRegistradas.forEach(linea => {
+                const opcion = document.createElement("option");
+                opcion.value = linea.id;
+                opcion.textContent = linea.nombre;
+                selector.appendChild(opcion);
+            });
+
+            if (lineasRegistradas.length > 0) {
+                selector.value = lineaActivaId;
+            }
+
+            actualizarEquipos();
+        } catch (error) {
+            console.error("Error al cargar líneas de trabajo:", error);
+        }
+    }
+
+    function cambiarLineaActiva() {
+        lineaActivaId = parseInt(document.getElementById("selector-linea").value);
+        actualizarEquipos();
+        actualizarAlertas();
+    }
 
     async function cambiarEstadoActivo(equipoId, nuevoEstado) {
         try {
-            const respuesta = await fetch(`/api/equipos/${equipoId}/estado`, {
+            const respuesta = await fetch(`/api/lineas/${lineaActivaId}/estado-equipo`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ estado: nuevoEstado })
+                body: JSON.stringify({ equipo_id: equipoId, estado: nuevoEstado })
             });
 
             const datos = await respuesta.json();
-
             if (datos.error) {
-                alert(datos.error);
+                mostrarToast(datos.error, "error");
                 return;
             }
 
+            mostrarToast(`Estado del activo modificado a: ${nuevoEstado}`, "info");
             actualizarEquipos();
         } catch (error) {
             console.error("Error al cambiar estado del activo:", error);
         }
     }
-
-    // ------------------------------------------------------------
-    // Selector de equipo
-    // ------------------------------------------------------------
-    const TODOS = "__todos__";
-    let equiposDatos = [];
-    let equipoSeleccionado = null;
-    let verTodosManual = false;
-
-    try {
-        equipoSeleccionado = sessionStorage.getItem("equipoSeleccionado");
-    } catch (e) { }
 
     function crearRecuadro(etiqueta, idValor, esTexto) {
         const tarjeta = document.createElement("div");
@@ -247,7 +528,6 @@
 
         titulo.append(nombre, tipo, insignia);
 
-        // Control individual para Técnico y Supervisor
         if (ROL_USUARIO === "Tecnico" || ROL_USUARIO === "Supervisor") {
             const contenedorAcciones = document.createElement("div");
             contenedorAcciones.style.marginLeft = "auto";
@@ -283,7 +563,6 @@
         });
 
         bloque.appendChild(grid);
-
         return bloque;
     }
 
@@ -293,7 +572,6 @@
             estado.textContent = equipo.estado;
         }
 
-        // Actualiza el botón de control individual dinámicamente
         const btnControl = document.getElementById("btn-control-" + equipo.id);
         if (btnControl) {
             if (equipo.estado === "Operando") {
@@ -345,115 +623,74 @@
         });
     }
 
-    function esVistaTodos() {
-        return equipoSeleccionado === TODOS;
-    }
-
-    function equipoActual() {
-        return equiposDatos.find(function(e) { return e.id === equipoSeleccionado; });
-    }
-
-    function sincronizarCasilla() {
-        const casilla = document.getElementById("alertas-todos");
-        casilla.checked = esVistaTodos() || verTodosManual;
-        casilla.disabled = esVistaTodos();
-    }
-
-    function actualizarSelector() {
-        const selector = document.getElementById("selector-equipo");
-        const ids = equiposDatos.map(function(e) { return e.id; });
-
-        if (equipoSeleccionado !== TODOS && !ids.includes(equipoSeleccionado)) {
-            equipoSeleccionado = ids.length ? ids[0] : null;
-        }
-
-        const firma = ids.join("|");
-        if (selector.dataset.firma !== firma) {
-            selector.replaceChildren();
-
-            if (equiposDatos.length > 1) {
-                const opcionTodos = document.createElement("option");
-                opcionTodos.value = TODOS;
-                opcionTodos.textContent = "Todos los equipos";
-                selector.appendChild(opcionTodos);
-            }
-
-            equiposDatos.forEach(function(equipo) {
-                const opcion = document.createElement("option");
-                opcion.value = equipo.id;
-                opcion.textContent = equipo.nombre;
-                selector.appendChild(opcion);
-            });
-            selector.dataset.firma = firma;
-        }
-
-        if (equipoSeleccionado === TODOS && equiposDatos.length <= 1) {
-            equipoSeleccionado = ids.length ? ids[0] : null;
-        }
-
-        if (equipoSeleccionado) {
-            selector.value = equipoSeleccionado;
-        }
-
-        sincronizarCasilla();
-    }
-
-    function mostrarEquipoSeleccionado() {
-        const contenedor = document.getElementById("equipos");
-
-        if (!equiposDatos.length) {
-            contenedor.textContent = "No hay equipos disponibles para tu perfil.";
-            contenedor.dataset.vista = "";
-            return;
-        }
-
-        const visibles = esVistaTodos()
-            ? equiposDatos
-            : equiposDatos.filter(function(e) { return e.id === equipoSeleccionado; });
-
-        const vista = visibles.map(function(e) { return e.id; }).join("|");
-        if (contenedor.dataset.vista !== vista) {
-            contenedor.replaceChildren();
-            visibles.forEach(function(equipo) {
-                contenedor.appendChild(crearBloqueEquipo(equipo));
-            });
-            contenedor.dataset.vista = vista;
-        }
-
-        visibles.forEach(pintarValores);
-    }
-
     async function actualizarEquipos() {
         try {
-            const respuesta = await fetch("/api/equipos");
+            const respuesta = await fetch(`/api/equipos/linea/${lineaActivaId}`);
             if (!respuesta.ok) return;
 
             equiposDatos = await respuesta.json();
+            const contenedor = document.getElementById("equipos");
 
-            actualizarSelector();
-            mostrarEquipoSeleccionado();
+            const vista = equiposDatos.map(e => e.id).join("|");
+            if (contenedor.dataset.vista !== vista) {
+                contenedor.replaceChildren();
+                equiposDatos.forEach(function(equipo) {
+                    contenedor.appendChild(crearBloqueEquipo(equipo));
+                });
+                contenedor.dataset.vista = vista;
+            }
+
+            equiposDatos.forEach(pintarValores);
         } catch (error) {
-            console.error("Error obteniendo equipos:", error);
+            console.error("Error obteniendo equipos de la línea:", error);
         }
     }
 
-    document.getElementById("selector-equipo").addEventListener("change", function(evento) {
-        equipoSeleccionado = evento.target.value;
+    async function actualizarAlertas() {
         try {
-            sessionStorage.setItem("equipoSeleccionado", equipoSeleccionado);
-        } catch (e) { }
+            const respuestaEventos = await fetch(`/api/alertas?linea_id=${lineaActivaId}`);
+            if (!respuestaEventos.ok) return;
 
-        sincronizarCasilla();
-        mostrarEquipoSeleccionado();
-        actualizarAlertas();
-    });
+            const datosEventos = await respuestaEventos.json();
+            const variables = equiposDatos.flatMap(e => e.variables || []);
+            const normales = variables.filter(v => v.severidad === "normal").length;
+            const alertas = variables.filter(v => v.severidad === "alerta").length;
+            const criticas = variables.filter(v => v.severidad === "paro").length;
 
-    document.getElementById("alertas-todos").addEventListener("change", function(evento) {
-        if (!esVistaTodos()) {
-            verTodosManual = evento.target.checked;
+            document.getElementById("resumen-alertas").innerHTML =
+                `<span>Normales: ${normales}</span><span>Alertas: ${alertas}</span><span>Críticas: ${criticas}</span>`;
+
+            const contenedor = document.getElementById("lista-eventos-alerta");
+            let eventos = datosEventos.eventos || [];
+
+            if (!eventos.length) {
+                contenedor.textContent = "No se han registrado eventos de alerta en esta línea de trabajo.";
+                return;
+            }
+
+            const nombresSeveridad = { alerta: "ALERTA", paro: "CRÍTICO" };
+            contenedor.replaceChildren();
+
+            eventos.forEach(function(evento) {
+                const articulo = document.createElement("article");
+                articulo.className = "evento-alerta" + (evento.severidad === "paro" ? " evento-paro" : "");
+                
+                const titulo = document.createElement("strong");
+                titulo.textContent = `${evento.equipo_nombre} — ${nombresSeveridad[evento.severidad] || evento.severidad.toUpperCase()}`;
+                
+                const detalle = document.createElement("p");
+                detalle.textContent = `${evento.variable}: ${evento.valor ?? "--"} ${evento.unidad || ""}. ${evento.mensaje}`;
+                
+                const fecha = document.createElement("small");
+                fecha.textContent = evento.fecha_hora;
+                
+                articulo.append(titulo, detalle, fecha);
+                contenedor.appendChild(articulo);
+            });
+        } catch (error) {
+            console.error("Error actualizando alertas de la línea:", error);
         }
-        actualizarAlertas();
-    });
+    }
 
     async function actualizarConfiguracion() {
         try {
@@ -478,67 +715,160 @@
             const datos = await respuesta.json();
 
             if (datos.error) {
-                alert(datos.error);
+                mostrarToast(datos.error, "error");
                 return;
             }
 
-            alert(datos.mensaje);
+            mostrarToast(datos.mensaje, "exito");
             actualizarEquipos();
         } catch (error) {
             console.error(error);
-            alert("No se pudo ejecutar la acción.");
+            mostrarToast("No se pudo ejecutar la acción.", "error");
         }
     }
 
-    async function actualizarAlertas() {
-        try {
-            const respuestaEventos = await fetch("/api/alertas");
-            if (!respuestaEventos.ok) return;
+    // ------------------------------------------------------------
+    // LÓGICA DEL DIAGRAMA DE FLUJO INTERACTIVO (MODAL EXPANDIDO)
+    // ------------------------------------------------------------
+    async function abrirModalCrearLinea() {
+        const respuesta = await fetch("/api/equipos/disponibles");
+        const disponibles = await respuesta.json();
 
-            const datosEventos = await respuestaEventos.json();
-            const verTodos = esVistaTodos() || document.getElementById("alertas-todos").checked;
-            const equipo = equipoActual();
+        const panel = document.getElementById("panel-activos-disponibles");
+        panel.replaceChildren();
 
-            const origen = (verTodos || !equipo) ? equiposDatos : [equipo];
-            const variables = origen.flatMap(function(e) { return e.variables || []; });
-            const normales = variables.filter(function(v) { return v.severidad === "normal"; }).length;
-            const alertas = variables.filter(function(v) { return v.severidad === "alerta"; }).length;
-            const criticas = variables.filter(function(v) { return v.severidad === "paro"; }).length;
-            document.getElementById("resumen-alertas").innerHTML =
-                `<span>Normales: ${normales}</span><span>Alertas: ${alertas}</span><span>Críticas: ${criticas}</span>`;
+        disponibles.forEach(eq => {
+            const btn = document.createElement("div");
+            btn.className = "item-activo-btn";
+            btn.innerHTML = `<span>${eq.nombre}</span> <span style="color:#2563eb; font-weight:bold;">+</span>`;
+            btn.onclick = () => agregarAlDiagrama(eq);
+            panel.appendChild(btn);
+        });
 
-            const contenedor = document.getElementById("lista-eventos-alerta");
-            let eventos = datosEventos.eventos || [];
-            if (!verTodos && equipo) {
-                eventos = eventos.filter(function(e) { return e.equipo_id === equipo.id; });
+        secuenciaDiagrama = [];
+        renderizarDiagrama();
+        document.getElementById("nueva-linea-nombre").value = "Línea 1";
+        document.getElementById("modal-linea").style.display = "flex";
+    }
+
+    function agregarAlDiagrama(equipo) {
+        secuenciaDiagrama.push({ id: equipo.id, nombre: equipo.nombre });
+        renderizarDiagrama();
+    }
+
+    function eliminarDelDiagrama(indice) {
+        secuenciaDiagrama.splice(indice, 1);
+        renderizarDiagrama();
+    }
+
+    function renderizarDiagrama() {
+        const canvas = document.getElementById("canvas-flujo");
+        canvas.replaceChildren();
+
+        if (secuenciaDiagrama.length === 0) {
+            const mensajeVacio = document.createElement("div");
+            mensajeVacio.style.color = "#94a3b8";
+            mensajeVacio.style.textAlign = "center";
+            mensajeVacio.style.width = "100%";
+            mensajeVacio.style.paddingTop = "110px";
+            mensajeVacio.style.fontSize = "1.05rem";
+            mensajeVacio.textContent = "Haz clic en los activos de la izquierda para construir el diagrama de flujo de la línea.";
+            canvas.appendChild(mensajeVacio);
+            return;
+        }
+
+        secuenciaDiagrama.forEach((item, index) => {
+            const bloque = document.createElement("div");
+            bloque.className = "bloque-flujo";
+            bloque.textContent = item.nombre;
+
+            const btnBorrar = document.createElement("button");
+            btnBorrar.className = "btn-eliminar-bloque";
+            btnBorrar.textContent = "×";
+            btnBorrar.title = "Eliminar activo de la línea";
+            btnBorrar.onclick = (e) => {
+                e.stopPropagation();
+                eliminarDelDiagrama(index);
+            };
+
+            bloque.appendChild(btnBorrar);
+            canvas.appendChild(bloque);
+
+            if (index < secuenciaDiagrama.length - 1) {
+                const flecha = document.createElement("span");
+                flecha.className = "flecha-conector";
+                flecha.innerHTML = "➔";
+                canvas.appendChild(flecha);
             }
+        });
+    }
 
-            if (!eventos.length) {
-                contenedor.textContent = verTodos || !equipo
-                    ? "No se han registrado eventos de alerta."
-                    : "No se han registrado eventos de alerta para este equipo.";
+    function cerrarModalCrearLinea() { document.getElementById("modal-linea").style.display = "none"; }
+    function abrirModalPersonal() { document.getElementById("modal-personal").style.display = "flex"; }
+    function cerrarModalPersonal() { document.getElementById("modal-personal").style.display = "none"; }
+
+    async function guardarNuevaLinea() {
+        const nombre = document.getElementById("nueva-linea-nombre").value.trim();
+        const activosIds = secuenciaDiagrama.map(a => a.id);
+
+        if (!nombre) {
+            mostrarToast("Por favor ingresa un nombre para la línea de trabajo.", "error");
+            return;
+        }
+
+        if (!activosIds.length) {
+            mostrarToast("Agrega al menos un activo al diagrama de flujo.", "error");
+            return;
+        }
+
+        try {
+            const respuesta = await fetch("/api/lineas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nombre: nombre, activos: activosIds })
+            });
+
+            const datos = await respuesta.json();
+
+            if (!respuesta.ok || datos.error) {
+                mostrarToast(datos.error || "Ocurrió un error al guardar la línea.", "error");
                 return;
             }
 
-            const nombresSeveridad = { alerta: "ALERTA", paro: "CRÍTICO" };
-
-            contenedor.replaceChildren();
-            eventos.forEach(function(evento) {
-                const articulo = document.createElement("article");
-                articulo.className = "evento-alerta" + (evento.severidad === "paro" ? " evento-paro" : "");
-                const titulo = document.createElement("strong");
-                titulo.textContent = `${evento.equipo_nombre} — ${nombresSeveridad[evento.severidad] || evento.severidad.toUpperCase()}`;
-                const detalle = document.createElement("p");
-                detalle.textContent = `${evento.variable}: ${evento.valor ?? "--"} ${evento.unidad || ""}. ${evento.mensaje}`;
-                const fecha = document.createElement("small");
-                fecha.textContent = evento.fecha_hora;
-                articulo.append(titulo, detalle, fecha);
-                contenedor.appendChild(articulo);
-            });
-
+            mostrarToast(datos.mensaje || "Línea de trabajo creada exitosamente.", "exito");
+            cerrarModalCrearLinea();
+            await cargarLineas();
+            
+            // Seleccionar automáticamente la línea recién creada
+            if (datos.linea_id) {
+                lineaActivaId = datos.linea_id;
+                document.getElementById("selector-linea").value = datos.linea_id;
+                cambiarLineaActiva();
+            }
         } catch (error) {
-            console.error("Error actualizando alertas:", error);
+            console.error("Error al guardar línea:", error);
+            mostrarToast("No se pudo conectar con el servidor.", "error");
         }
+    }
+
+    function exportarAuditoriaLinea(formato) {
+        window.location.href = `/exportar/auditoria/${lineaActivaId}/${formato}`;
+    }
+
+    async function exportarReporteConsolidado() {
+        const ids = lineasRegistradas.map(l => l.id);
+        const respuesta = await fetch("/exportar/auditoria/multilinea", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lineas_ids: ids })
+        });
+
+        const blob = await respuesta.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Reporte_Consolidado_Zonas.pdf";
+        a.click();
     }
 
     async function actualizarDashboard() {
@@ -547,8 +877,8 @@
         actualizarAlertas();
     }
 
-    actualizarDashboard();
-    setInterval(actualizarDashboard, 2000);
+    cargarLineas();
+    setInterval(actualizarDashboard, 2500);
 </script>
 
 <script src="{{ url_for('static', filename='js/dt_util.js') }}"></script>
