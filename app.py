@@ -11,12 +11,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from equipos import EQUIPOS
 from alertas import REGLAS_ALERTAS, evaluar_valor
 
-# IMPORTS DE SPRINT 2 (InfluxDB + Auditoría + Reportes)
 from services.influxDB import InfluxDBService
-from services.report_generator import generar_pdf_auditoria, generar_csv_auditoria
+from services.report_generator import generar_pdf_auditoria, generar_csv_auditoria, generar_pdf_multilinea
 from logic.auditoria_logic import evaluar_estado_linea
 
-# EXTENSIONES: umbrales configurables por rol y calendario de mantenimientos
 import umbrales
 import mantenimientos
 
@@ -24,8 +22,6 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "clave-secreta-gemelo-digital-dev")
 
 DB_NAME = "database.db"
-
-# Inicializar servicio InfluxDB Cloud
 influx_service = InfluxDBService()
 
 app.register_blueprint(umbrales.bp)
@@ -50,24 +46,6 @@ def init_db():
     """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            numero_empleado TEXT NOT NULL UNIQUE,
-            nombre TEXT NOT NULL,
-            password TEXT NOT NULL,
-            rol_id INTEGER NOT NULL,
-            activo INTEGER DEFAULT 1,
-            FOREIGN KEY (rol_id) REFERENCES roles(id)
-        )
-    """)
-
-    try:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1")
-    except sqlite3.OperationalError:
-        pass
-
-    # Organizaciones (tenants): cada cliente registra la suya
-    cursor.execute("""
         CREATE TABLE IF NOT EXISTS organizaciones (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -75,43 +53,66 @@ def init_db():
         )
     """)
 
-    try:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN organizacion_id INTEGER REFERENCES organizaciones(id)")
-    except sqlite3.OperationalError:
-        pass
-
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS activos (
+        CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_empleado TEXT NOT NULL UNIQUE,
             nombre TEXT NOT NULL,
-            tipo TEXT NOT NULL,
-            estado TEXT NOT NULL
+            password TEXT NOT NULL,
+            rol_id INTEGER NOT NULL,
+            organizacion_id INTEGER,
+            activo INTEGER DEFAULT 1,
+            FOREIGN KEY (rol_id) REFERENCES roles(id),
+            FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id)
         )
     """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS lineas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL UNIQUE
+            organizacion_id INTEGER,
+            nombre TEXT NOT NULL,
+            descripcion TEXT,
+            creado_por TEXT,
+            fecha_creacion TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (organizacion_id) REFERENCES organizaciones(id)
         )
     """)
 
-    try:
-        cursor.execute("ALTER TABLE activos ADD COLUMN linea_id INTEGER DEFAULT 1")
-    except sqlite3.OperationalError:
-        pass
-
-    cursor.execute("SELECT COUNT(*) AS total FROM lineas")
-    if cursor.fetchone()["total"] == 0:
-        cursor.execute("INSERT INTO lineas (id, nombre) VALUES (1, 'Línea Principal de Manufactura')")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS linea_activos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            linea_id INTEGER NOT NULL,
+            equipo_id TEXT NOT NULL,
+            orden INTEGER NOT NULL,
+            FOREIGN KEY (linea_id) REFERENCES lineas(id) ON DELETE CASCADE
+        )
+    """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS metricas_produccion (
+        CREATE TABLE IF NOT EXISTS linea_personal (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            produccion INTEGER,
-            eficiencia REAL,
-            tiempo_operacion REAL,
-            fecha_hora TEXT DEFAULT CURRENT_TIMESTAMP
+            linea_id INTEGER NOT NULL,
+            usuario_id INTEGER NOT NULL,
+            rol_asignado TEXT,
+            fecha_asignacion TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (linea_id) REFERENCES lineas(id) ON DELETE CASCADE,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS eventos_alerta (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            linea_id INTEGER DEFAULT 1,
+            equipo_id TEXT NOT NULL,
+            equipo_nombre TEXT NOT NULL,
+            variable TEXT NOT NULL,
+            valor REAL,
+            unidad TEXT,
+            severidad TEXT NOT NULL,
+            mensaje TEXT NOT NULL,
+            fecha_hora TEXT NOT NULL
         )
     """)
 
@@ -125,32 +126,49 @@ def init_db():
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS eventos_alerta (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            equipo_id TEXT NOT NULL,
-            equipo_nombre TEXT NOT NULL,
-            variable TEXT NOT NULL,
-            valor REAL,
-            unidad TEXT,
-            severidad TEXT NOT NULL,
-            mensaje TEXT NOT NULL,
-            fecha_hora TEXT NOT NULL
-        )
-    """)
+    # -------------------------------------------------------------------
+    # MIGRACIÓN AUTOMÁTICA DE ESQUEMA PARA BASES DE DATOS PREVIAS
+    # -------------------------------------------------------------------
+    try:
+        cursor.execute("ALTER TABLE lineas ADD COLUMN organizacion_id INTEGER REFERENCES organizaciones(id)")
+    except sqlite3.OperationalError:
+        pass
 
+    try:
+        cursor.execute("ALTER TABLE lineas ADD COLUMN descripcion TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE lineas ADD COLUMN creado_por TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE eventos_alerta ADD COLUMN linea_id INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+
+    # Sembrar roles por defecto
     roles = [("Operador",), ("Tecnico",), ("Supervisor",)]
     for rol in roles:
         cursor.execute("INSERT OR IGNORE INTO roles (nombre) VALUES (?)", rol)
 
-    usuarios = [
+    # Sembrar Organización Demo por defecto
+    cursor.execute("INSERT OR IGNORE INTO organizaciones (nombre) VALUES ('Organización Demo')")
+    cursor.execute("SELECT id FROM organizaciones WHERE nombre = 'Organización Demo'")
+    org_demo_row = cursor.fetchone()
+    org_demo_id = org_demo_row["id"] if org_demo_row else None
+
+    # Sembrar usuarios demo por defecto
+    usuarios_demo = [
         ("1001", "Operador Demo", "op123", "Operador"),
         ("2001", "Técnico Demo", "tec123", "Tecnico"),
         ("3001", "Supervisor Demo", "admin123", "Supervisor")
     ]
 
-    for numero, nombre, password, rol in usuarios:
-        cursor.execute("SELECT id FROM roles WHERE nombre = ?", (rol,))
+    for numero, nombre, password, rol_nombre in usuarios_demo:
+        cursor.execute("SELECT id FROM roles WHERE nombre = ?", (rol_nombre,))
         rol_row = cursor.fetchone()
         if not rol_row:
             continue
@@ -159,33 +177,18 @@ def init_db():
         cursor.execute("SELECT id FROM usuarios WHERE numero_empleado = ?", (numero,))
         if not cursor.fetchone():
             cursor.execute("""
-                INSERT INTO usuarios (numero_empleado, nombre, password, rol_id)
-                VALUES (?, ?, ?, ?)
-            """, (numero, nombre, generate_password_hash(password), rol_id))
+                INSERT INTO usuarios (numero_empleado, nombre, password, rol_id, organizacion_id)
+                VALUES (?, ?, ?, ?, ?)
+            """, (numero, nombre, generate_password_hash(password), rol_id, org_demo_id))
 
-    # Los usuarios existentes (demo) quedan en una organización por defecto
-    cursor.execute("INSERT OR IGNORE INTO organizaciones (nombre) VALUES ('Organización Demo')")
-    cursor.execute("SELECT id FROM organizaciones WHERE nombre = 'Organización Demo'")
-    org_demo_id = cursor.fetchone()["id"]
-    cursor.execute(
-        "UPDATE usuarios SET organizacion_id = ? WHERE organizacion_id IS NULL",
-        (org_demo_id,)
-    )
-
-    activos = [
-        ("Motor principal", "Motor", "Operando"),
-        ("Banda transportadora", "Transportador", "Operando"),
-        ("Sensor de temperatura", "Sensor virtual", "Activo"),
-        ("Sensor de presión", "Sensor virtual", "Activo")
-    ]
-
-    for nombre, tipo, estado in activos:
-        cursor.execute("SELECT id FROM activos WHERE nombre = ?", (nombre,))
-        if not cursor.fetchone():
-            cursor.execute("""
-                INSERT INTO activos (nombre, tipo, estado)
-                VALUES (?, ?, ?)
-            """, (nombre, tipo, estado))
+    # Sembrar línea predeterminada si no existe ninguna
+    cursor.execute("SELECT COUNT(*) AS total FROM lineas")
+    if cursor.fetchone()["total"] == 0:
+        cursor.execute("INSERT INTO lineas (id, organizacion_id, nombre, descripcion) VALUES (1, ?, 'Línea Ensamblado Principal', 'Línea base predeterminada')", (org_demo_id,))
+        
+        activos_default = ["motor", "banda", "compresor", "bomba", "chiller", "reflujo", "inyectora", "cnc"]
+        for idx, eq_id in enumerate(activos_default, start=1):
+            cursor.execute("INSERT INTO linea_activos (linea_id, equipo_id, orden) VALUES (1, ?, ?)", (eq_id, idx))
 
     cursor.execute("SELECT COUNT(*) AS total FROM configuracion_linea")
     if cursor.fetchone()["total"] == 0:
@@ -200,12 +203,11 @@ def init_db():
 
 init_db()
 
-# Registro de alertas
 _severidad_alertas_anterior = {}
 
 
-def registrar_cambio_alerta(equipo, variable, valor, unidad, resultado):
-    clave = f"{equipo['id']}.{variable['clave']}"
+def registrar_cambio_alerta(linea_id, equipo, variable, valor, unidad, resultado):
+    clave = f"{linea_id}.{equipo['id']}.{variable['clave']}"
     severidad = resultado["severidad"]
     anterior = _severidad_alertas_anterior.get(clave, "normal")
     _severidad_alertas_anterior[clave] = severidad
@@ -216,10 +218,10 @@ def registrar_cambio_alerta(equipo, variable, valor, unidad, resultado):
     conn = get_db_connection()
     conn.execute("""
         INSERT INTO eventos_alerta
-        (equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (linea_id, equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        equipo["id"], equipo["nombre"], variable["etiqueta"],
+        linea_id, equipo["id"], equipo["nombre"], variable["etiqueta"],
         float(valor) if valor is not None else None, unidad, severidad,
         resultado["mensaje"], datetime.now().astimezone().isoformat(timespec="seconds")
     ))
@@ -227,119 +229,64 @@ def registrar_cambio_alerta(equipo, variable, valor, unidad, resultado):
     conn.close()
 
 
-# SIMULACIÓN DEL GEMELO DIGITAL GLOBAL
-
-simulacion = {
-    "temperatura": 70.0,
-    "presion": 3.5,
-    "velocidad": 80.0,
-    "nivel": 75.0,
-    "produccion": 0,
-    "eficiencia": 92.0,
-    "estado": "Operando",
-    "ultimo_update": time.time()
-}
-
-
-def actualizar_simulacion():
-    ahora = time.time()
-    if ahora - simulacion["ultimo_update"] >= 1:
-        simulacion["ultimo_update"] = ahora
-
-        if simulacion["estado"] == "Operando":
-            simulacion["temperatura"] = max(60, min(85, simulacion["temperatura"] + random.uniform(-0.8, 0.8)))
-            simulacion["presion"] = max(2.5, min(4.5, simulacion["presion"] + random.uniform(-0.08, 0.08)))
-            simulacion["velocidad"] = max(60, min(100, simulacion["velocidad"] + random.uniform(-2, 2)))
-            simulacion["nivel"] = max(0, min(100, simulacion["nivel"] + random.uniform(-1.5, 1.5)))
-            simulacion["produccion"] += random.randint(1, 4)
-            simulacion["eficiencia"] = random.uniform(88, 97)
-        else:
-            # Enfriamiento global de simulación base al estar detenido
-            simulacion["temperatura"] = max(25.0, simulacion["temperatura"] - 1.0)
-            simulacion["velocidad"] = 0.0
-            simulacion["presion"] = max(0.0, simulacion["presion"] - 0.5)
-
-
-# ESTADO POR ACTIVO INDIVIDUAL Y SIMULACIÓN FÍSICA APLICADA
+simulacion = {"estado": "Operando", "ultimo_update": time.time()}
 valores_equipos = {}
+estados_equipos = {}
 control_equipos = {"ultimo_update": time.time()}
-estados_equipos = {}  # Guarda estados individuales ('Operando', 'Detenido', etc.)
 
 
-def obtener_estado_activo(equipo_id):
-    """Retorna el estado operativo efectivo del activo considerando paros globales."""
+def obtener_estado_activo(linea_id, equipo_id):
+    clave = f"{linea_id}.{equipo_id}"
     if simulacion["estado"] in ["Detenido", "Emergencia"]:
         return simulacion["estado"]
-    return estados_equipos.get(equipo_id, "Operando")
+    return estados_equipos.get(clave, "Operando")
 
 
-def inicializar_equipos():
-    for equipo in EQUIPOS:
-        estados_equipos[equipo["id"]] = "Operando"
-        for variable in equipo["variables"]:
-            if "calculo" in variable or variable.get("tipo") == "texto":
-                continue
-
-            clave = f'{equipo["id"]}.{variable["clave"]}'
-
-            if variable.get("tipo") == "contador":
-                valores_equipos[clave] = float(variable["inicio"])
-            else:
-                valores_equipos[clave] = random.uniform(variable["min"], variable["max"])
-
-
-def actualizar_equipos():
+def actualizar_equipos_linea(linea_id, lista_equipos_ordenados):
     ahora = time.time()
     if ahora - control_equipos["ultimo_update"] < 1:
         return
     control_equipos["ultimo_update"] = ahora
 
-    for equipo in EQUIPOS:
-        estado_activo = obtener_estado_activo(equipo["id"])
+    for equipo in lista_equipos_ordenados:
+        estado_activo = obtener_estado_activo(linea_id, equipo["id"])
         esta_operando = (estado_activo == "Operando")
 
         for variable in equipo["variables"]:
             if "calculo" in variable or variable.get("tipo") == "texto":
                 continue
 
-            clave = f'{equipo["id"]}.{variable["clave"]}'
+            clave = f'{linea_id}.{equipo["id"]}.{variable["clave"]}'
             clave_var = variable["clave"].lower()
 
-            # 1. Contadores (incrementan solo al estar operando)
+            if clave not in valores_equipos:
+                valores_equipos[clave] = float(variable["inicio"]) if variable.get("tipo") == "contador" else random.uniform(variable["min"], variable["max"])
+
             if variable.get("tipo") == "contador":
                 if esta_operando:
                     minimo, maximo = variable["incremento"]
                     valores_equipos[clave] += random.uniform(minimo, maximo)
                 continue
 
-            # 2. Variables térmicas (calentamiento y enfriamiento paulatino)
             es_termica = any(t in clave_var for t in ["temp", "temperatura", "zona", "pico", "agua"])
             if es_termica:
                 temp_actual = valores_equipos[clave]
-                min_nom = variable["min"]
-                max_nom = variable["max"]
+                min_nom, max_nom = variable["min"], variable["max"]
 
                 if esta_operando:
                     if temp_actual < min_nom:
-                        # Calentamiento paulatino hasta alcanzar el rango nominal
                         valores_equipos[clave] = min(min_nom, temp_actual + random.uniform(1.0, 2.5))
                     elif temp_actual > max_nom:
-                        # Estabilización progresiva hacia el rango máximo
                         valores_equipos[clave] = max(max_nom, temp_actual - random.uniform(0.5, 1.0))
                     else:
-                        # Operación nominal con oscilación suave
                         rango = max_nom - min_nom
                         nuevo = temp_actual + random.uniform(-0.05, 0.05) * rango
                         valores_equipos[clave] = max(min_nom, min(max_nom, nuevo))
                 else:
-                    # Enfriamiento paulatino hacia temperatura ambiente (~25.0 °C)
                     if temp_actual > 25.0:
                         valores_equipos[clave] = max(25.0, temp_actual - random.uniform(0.5, 1.2))
-                    elif temp_actual < 25.0:
-                        valores_equipos[clave] = min(25.0, temp_actual + random.uniform(0.2, 0.5))
                 continue
 
-            # 3. Variables mecánicas y eléctricas (caen a 0 inmediatamente al detenerse)
             if esta_operando:
                 rango = variable["max"] - variable["min"]
                 nuevo = valores_equipos[clave] + random.uniform(-0.05, 0.05) * rango
@@ -348,23 +295,47 @@ def actualizar_equipos():
                 valores_equipos[clave] = 0.0
 
 
-inicializar_equipos()
+def obtener_estado_linea_completo(linea_id):
+    conn = get_db_connection()
+    filas = conn.execute("""
+        SELECT id, equipo_id, orden FROM linea_activos
+        WHERE linea_id = ? ORDER BY orden ASC
+    """, (linea_id,)).fetchall()
+    conn.close()
 
+    dict_equipos = {e["id"]: e for e in EQUIPOS}
+    equipos_linea = []
 
-def obtener_estado_equipos_completo():
-    actualizar_simulacion()
-    actualizar_equipos()
+    for f in filas:
+        eq_base = dict_equipos.get(f["equipo_id"])
+        if not eq_base:
+            continue
 
+        instancia_id = f"{f['equipo_id']}_{f['orden']}"
+        nombre_instancia = f"{eq_base['nombre']} #{f['orden']}"
+
+        variables_copia = [dict(v) for v in eq_base["variables"]]
+
+        equipos_linea.append({
+            "id": instancia_id,
+            "base_id": eq_base["id"],
+            "nombre": nombre_instancia,
+            "tipo": eq_base["tipo"],
+            "variables": variables_copia
+        })
+
+    actualizar_equipos_linea(linea_id, equipos_linea)
     resultado = []
 
-    for equipo in EQUIPOS:
-        estado_activo = obtener_estado_activo(equipo["id"])
+    for equipo in equipos_linea:
+        estado_activo = obtener_estado_activo(linea_id, equipo["id"])
         valores = {}
 
         for variable in equipo["variables"]:
             if "calculo" in variable or variable.get("tipo") == "texto":
                 continue
-            valores[variable["clave"]] = valores_equipos[f'{equipo["id"]}.{variable["clave"]}']
+            clave_sp = f'{linea_id}.{equipo["id"]}.{variable["clave"]}'
+            valores[variable["clave"]] = valores_equipos.get(clave_sp, variable.get("min", 0))
 
         for variable in equipo["variables"]:
             if "calculo" in variable:
@@ -384,20 +355,15 @@ def obtener_estado_equipos_completo():
                 if decimales == 0:
                     valor = int(valor)
 
-            # Umbral vigente: el personalizado (si un usuario autorizado lo cambió) o el predeterminado
-            regla = umbrales.obtener_regla(equipo["id"], clave_variable)
+            regla = umbrales.obtener_regla(equipo["base_id"], clave_variable)
 
-            # Si el activo está detenido, evitar disparar alertas por caída a 0 RPM
             if estado_activo in ["Detenido", "Inactivo"]:
                 evaluacion = {"severidad": "normal", "mensaje": "Equipo en paro programado"}
             else:
-                evaluacion = evaluar_valor(valor, regla) if regla else {
-                    "severidad": "sin_regla",
-                    "mensaje": "Variable sin umbral configurado"
-                }
+                evaluacion = evaluar_valor(valor, regla) if regla else {"severidad": "sin_regla", "mensaje": "Sin umbral"}
 
             if regla and estado_activo == "Operando":
-                registrar_cambio_alerta(equipo, variable, valor, variable["unidad"], evaluacion)
+                registrar_cambio_alerta(linea_id, equipo, variable, valor, variable["unidad"], evaluacion)
 
             variables_salida.append({
                 "clave": clave_variable,
@@ -410,9 +376,8 @@ def obtener_estado_equipos_completo():
 
             variables_dict_influx[clave_variable] = valor
 
-        # Transmitir diccionario completo a InfluxDB Cloud
         influx_service.registrar_metricas_activo(
-            linea_id=1,
+            linea_id=str(linea_id),
             activo_id=equipo["id"],
             variables_dict=variables_dict_influx,
             estado=estado_activo
@@ -420,6 +385,7 @@ def obtener_estado_equipos_completo():
 
         resultado.append({
             "id": equipo["id"],
+            "base_id": equipo["base_id"],
             "nombre": equipo["nombre"],
             "tipo": equipo["tipo"],
             "estado": estado_activo,
@@ -429,7 +395,7 @@ def obtener_estado_equipos_completo():
     return resultado
 
 
-# RUTAS DE AUTENTICACIÓN Y REGISTRO
+# RUTAS DE VISTA BASE Y AUTENTICACIÓN
 
 @app.route("/")
 def inicio():
@@ -446,8 +412,7 @@ def login():
 
         conn = get_db_connection()
         usuario = conn.execute("""
-            SELECT usuarios.*, roles.nombre AS rol,
-                   organizaciones.nombre AS organizacion
+            SELECT usuarios.*, roles.nombre AS rol, organizaciones.nombre AS organizacion
             FROM usuarios
             INNER JOIN roles ON usuarios.rol_id = roles.id
             LEFT JOIN organizaciones ON usuarios.organizacion_id = organizaciones.id
@@ -458,7 +423,6 @@ def login():
         if usuario:
             pwd_db = usuario["password"]
             es_valido = False
-
             try:
                 es_valido = check_password_hash(pwd_db, password)
             except Exception:
@@ -516,11 +480,6 @@ def registro():
 
 @app.route("/registro-organizacion", methods=["GET", "POST"])
 def registro_organizacion():
-    """Historia #3278: un nuevo cliente registra su organización.
-
-    Crea la organización y su primer usuario administrador. El rol del
-    administrador es siempre Supervisor y no se puede elegir en el formulario.
-    """
     datos = {
         "organizacion": (request.form.get("organizacion") or "").strip(),
         "nombre": (request.form.get("nombre") or "").strip(),
@@ -599,13 +558,118 @@ def logout():
     return redirect(url_for("login"))
 
 
-# RUTAS API REST
+# API REST
+
+@app.route("/api/lineas", methods=["GET", "POST"])
+def api_lineas():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    conn = get_db_connection()
+
+    if request.method == "POST":
+        if session.get("rol") != "Supervisor":
+            return jsonify({"error": "Acceso denegado. Solo el Supervisor tiene permisos para crear líneas de trabajo."}), 403
+
+        datos = request.get_json() or {}
+        nombre = datos.get("nombre", "").strip()
+        descripcion = datos.get("descripcion", "").strip()
+        activos_ordenados = datos.get("activos", [])
+
+        if not nombre or not activos_ordenados:
+            return jsonify({"error": "El nombre y al menos un activo son requeridos."}), 400
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO lineas (organizacion_id, nombre, descripcion, creado_por)
+            VALUES (?, ?, ?, ?)
+        """, (session.get("organizacion_id"), nombre, descripcion, session.get("nombre")))
+        linea_id = cursor.lastrowid
+
+        for idx, eq_id in enumerate(activos_ordenados, start=1):
+            cursor.execute("""
+                INSERT INTO linea_activos (linea_id, equipo_id, orden)
+                VALUES (?, ?, ?)
+            """, (linea_id, eq_id, idx))
+
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": f"Línea de trabajo '{nombre}' creada exitosamente.", "linea_id": linea_id}), 201
+
+    lineas = conn.execute("SELECT * FROM lineas ORDER BY id ASC").fetchall()
+    conn.close()
+    return jsonify([dict(l) for l in lineas])
+
+
+@app.route("/api/lineas/<int:linea_id>/personal", methods=["GET", "POST"])
+def api_linea_personal(linea_id):
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    conn = get_db_connection()
+
+    if request.method == "POST":
+        if session.get("rol") != "Supervisor":
+            return jsonify({"error": "Solo el supervisor puede asignar personal."}), 403
+
+        datos = request.get_json() or {}
+        usuario_id = datos.get("usuario_id")
+        rol_asignado = datos.get("rol_asignado", "Operador de Línea")
+
+        conn.execute("""
+            INSERT INTO linea_personal (linea_id, usuario_id, rol_asignado)
+            VALUES (?, ?, ?)
+        """, (linea_id, usuario_id, rol_asignado))
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": "Personal asignado a la línea."})
+
+    personal = conn.execute("""
+        SELECT lp.id, u.nombre, u.numero_empleado, lp.rol_asignado, lp.fecha_asignacion
+        FROM linea_personal lp
+        INNER JOIN usuarios u ON lp.usuario_id = u.id
+        WHERE lp.linea_id = ?
+    """, (linea_id,)).fetchall()
+    conn.close()
+    return jsonify([dict(p) for p in personal])
+
+
+@app.route("/api/equipos/disponibles")
+def api_equipos_disponibles():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+    
+    return jsonify([
+        {"id": e["id"], "nombre": e["nombre"], "tipo": e["tipo"]}
+        for e in EQUIPOS
+    ])
+
+
+@app.route("/api/equipos/linea/<int:linea_id>")
+def api_equipos_linea(linea_id):
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+    return jsonify(obtener_estado_linea_completo(linea_id))
+
 
 @app.route("/api/equipos")
 def api_equipos():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
-    return jsonify(obtener_estado_equipos_completo())
+    return jsonify(obtener_estado_linea_completo(1))
+
+
+@app.route("/api/lineas/<int:linea_id>/estado-equipo", methods=["POST"])
+def cambiar_estado_equipo_linea(linea_id):
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    datos = request.get_json() or {}
+    equipo_id = datos.get("equipo_id")
+    nuevo_estado = datos.get("estado", "Operando")
+
+    estados_equipos[f"{linea_id}.{equipo_id}"] = nuevo_estado
+    return jsonify({"mensaje": f"Estado del activo cambiado a {nuevo_estado}."})
 
 
 @app.route("/api/equipos/<equipo_id>/estado", methods=["POST"])
@@ -620,86 +684,8 @@ def cambiar_estado_equipo(equipo_id):
     datos = request.get_json() or {}
     nuevo_estado = datos.get("estado", "Operando")
 
-    estados_equipos[equipo_id] = nuevo_estado
+    estados_equipos[f"1.{equipo_id}"] = nuevo_estado
     return jsonify({"mensaje": f"Estado del activo {equipo_id} cambiado a {nuevo_estado}."})
-
-
-@app.route("/api/variables")
-def api_variables():
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    actualizar_simulacion()
-    return jsonify({
-        "temperatura": round(simulacion["temperatura"], 2),
-        "presion": round(simulacion["presion"], 2),
-        "velocidad": round(simulacion["velocidad"], 2),
-        "nivel": round(simulacion["nivel"], 2)
-    })
-
-
-@app.route("/api/estado")
-def api_estado():
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    actualizar_simulacion()
-    return jsonify({"estado": simulacion["estado"]})
-
-
-@app.route("/api/metricas")
-def api_metricas():
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    actualizar_simulacion()
-    return jsonify({
-        "produccion": simulacion["produccion"],
-        "eficiencia": round(simulacion["eficiencia"], 2)
-    })
-
-
-@app.route("/api/activos")
-def api_activos():
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    conn = get_db_connection()
-    activos = conn.execute("SELECT * FROM activos").fetchall()
-    conn.close()
-
-    return jsonify([
-        {
-            "id": activo["id"],
-            "nombre": activo["nombre"],
-            "tipo": activo["tipo"],
-            "estado": activo["estado"]
-        }
-        for activo in activos
-    ])
-
-
-@app.route("/api/historicos")
-def api_historicos():
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    conn = get_db_connection()
-    registros = conn.execute("""
-        SELECT * FROM metricas_produccion
-        ORDER BY id DESC LIMIT 20
-    """).fetchall()
-    conn.close()
-
-    return jsonify([
-        {
-            "produccion": registro["produccion"],
-            "eficiencia": registro["eficiencia"],
-            "tiempo_operacion": registro["tiempo_operacion"],
-            "fecha_hora": registro["fecha_hora"]
-        }
-        for registro in registros
-    ])
 
 
 @app.route("/api/alertas")
@@ -707,20 +693,18 @@ def api_alertas():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
 
-    actualizar_simulacion()
-    actualizar_equipos()
+    linea_id = request.args.get("linea_id", type=int, default=1)
+
     conn = get_db_connection()
     registros = conn.execute("""
-        SELECT equipo_id, equipo_nombre, variable, valor, unidad,
-               severidad, mensaje, fecha_hora
+        SELECT equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora
         FROM eventos_alerta
+        WHERE linea_id = ?
         ORDER BY id DESC LIMIT 50
-    """).fetchall()
+    """, (linea_id,)).fetchall()
     conn.close()
 
-    return jsonify({
-        "eventos": [dict(registro) for registro in registros]
-    })
+    return jsonify({"eventos": [dict(r) for r in registros]})
 
 
 @app.route("/api/configuracion")
@@ -733,7 +717,12 @@ def api_configuracion():
     conn.close()
 
     if not configuracion:
-        return jsonify({"error": "Sin configuración disponible"}), 404
+        return jsonify({
+            "nombre_linea": "Línea 1",
+            "velocidad": 80.0,
+            "temperatura": 70.0,
+            "presion": 3.5
+        })
 
     return jsonify({
         "nombre_linea": configuracion["nombre_linea"],
@@ -767,7 +756,7 @@ def funciones(accion):
     return jsonify({"error": "Acción no reconocida."}), 400
 
 
-# RUTAS DE AUDITORÍA Y EXPORTACIÓN DE REPORTES (SPRINT 2)
+# RUTAS DE AUDITORÍA Y EXPORTACIÓN DE REPORTES
 
 @app.route("/auditoria/linea/<int:linea_id>")
 def ver_auditoria_linea(linea_id):
@@ -778,9 +767,9 @@ def ver_auditoria_linea(linea_id):
     linea = conn.execute("SELECT * FROM lineas WHERE id = ?", (linea_id,)).fetchone()
     conn.close()
 
-    nombre_linea = linea["nombre"] if linea else "Línea Principal de Manufactura"
+    nombre_linea = linea["nombre"] if linea else f"Línea #{linea_id}"
 
-    lista_activos = obtener_estado_equipos_completo()
+    lista_activos = obtener_estado_linea_completo(linea_id)
     dictamen, descripcion, color_badge = evaluar_estado_linea(lista_activos)
 
     return render_template(
@@ -805,9 +794,9 @@ def exportar_auditoria(linea_id, formato):
     linea = conn.execute("SELECT * FROM lineas WHERE id = ?", (linea_id,)).fetchone()
     conn.close()
 
-    nombre_linea = linea["nombre"] if linea else "Línea Principal de Manufactura"
+    nombre_linea = linea["nombre"] if linea else f"Línea #{linea_id}"
 
-    lista_activos = obtener_estado_equipos_completo()
+    lista_activos = obtener_estado_linea_completo(linea_id)
     dictamen, descripcion, _ = evaluar_estado_linea(lista_activos)
     fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M hrs")
     auditor = session.get("nombre", "Auditor PWA")
@@ -841,9 +830,52 @@ def exportar_auditoria(linea_id, formato):
             mimetype="text/csv"
         )
 
-    flash("Formato de exportación no válido.", "danger")
     return redirect(url_for("dashboard"))
 
 
+@app.route("/exportar/auditoria/multilinea", methods=["POST"])
+def exportar_auditoria_multilinea():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    datos = request.get_json() or {}
+    lineas_ids = datos.get("lineas_ids", [1])
+
+    conn = get_db_connection()
+    lineas_reporte = []
+
+    for lid in lineas_ids:
+        linea_row = conn.execute("SELECT * FROM lineas WHERE id = ?", (lid,)).fetchone()
+        nombre_linea = linea_row["nombre"] if linea_row else f"Línea #{lid}"
+        activos = obtener_estado_linea_completo(lid)
+        dictamen, descripcion, _ = evaluar_estado_linea(activos)
+
+        lineas_reporte.append({
+            "linea_id": lid,
+            "nombre": nombre_linea,
+            "dictamen": dictamen,
+            "descripcion": descripcion,
+            "activos": activos
+        })
+
+    conn.close()
+
+    fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M hrs")
+    auditor = session.get("nombre", "Auditor PWA")
+
+    pdf_buffer = generar_pdf_multilinea(
+        lineas_datos=lineas_reporte,
+        fecha_str=fecha_str,
+        auditor=auditor
+    )
+
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=f"Reporte_Consolidado_Zonas_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+        mimetype="application/pdf"
+    )
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)

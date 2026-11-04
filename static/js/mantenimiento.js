@@ -21,6 +21,50 @@
         msg.className = "dt-msg" + (tipo ? " " + tipo : "");
     }
 
+    function notificar(texto, tipo) {
+        if (typeof window.mostrarToast === "function" && texto) {
+            window.mostrarToast(texto, tipo === "error" ? "error" : "exito");
+        } else {
+            mostrarMensaje(texto, tipo);
+        }
+    }
+
+    function solicitarConfirmacionMant(mensaje, titulo) {
+        return new Promise(function (resolve) {
+            var modal = document.getElementById("modal-confirm-mantenimiento");
+            var elTitulo = document.getElementById("mant-confirm-titulo");
+            var elMensaje = document.getElementById("mant-confirm-mensaje");
+            var btnAceptar = document.getElementById("btn-mant-confirm-aceptar");
+            var btnCancelar = document.getElementById("btn-mant-confirm-cancelar");
+
+            if (!modal) {
+                resolve(true);
+                return;
+            }
+
+            if (titulo) elTitulo.textContent = titulo;
+            if (mensaje) elMensaje.textContent = mensaje;
+
+            modal.style.display = "flex";
+
+            function cerrar() {
+                modal.style.display = "none";
+                btnAceptar.onclick = null;
+                btnCancelar.onclick = null;
+            }
+
+            btnAceptar.onclick = function () {
+                cerrar();
+                resolve(true);
+            };
+
+            btnCancelar.onclick = function () {
+                cerrar();
+                resolve(false);
+            };
+        });
+    }
+
     function dos(n) { return (n < 10 ? "0" : "") + n; }
     function claveFecha(anio, mes, dia) { return anio + "-" + dos(mes + 1) + "-" + dos(dia); }
 
@@ -115,14 +159,14 @@
     async function cargarMes() {
         var mes = estado.anio + "-" + dos(estado.mes + 1);
         var r = await DT.api("/api/mantenimientos?equipo_id=" + encodeURIComponent(estado.equipoId) + "&mes=" + mes);
-        if (!r.ok) { mostrarMensaje(r.data.error || "No se pudo cargar el calendario.", "error"); return; }
+        if (!r.ok) { notificar(r.data.error || "No se pudo cargar el calendario.", "error"); return; }
         estado.eventos = r.data.eventos;
         pintarCalendario();
     }
 
     async function cargarResumen() {
         var r = await DT.api("/api/mantenimientos/resumen");
-        if (!r.ok) { mostrarMensaje(r.data.error || "No se pudo cargar el resumen.", "error"); return false; }
+        if (!r.ok) { notificar(r.data.error || "No se pudo cargar el resumen.", "error"); return false; }
         estado.hoy = r.data.hoy;
         estado.tipos = r.data.tipos;
         estado.equipos = r.data.equipos;
@@ -162,8 +206,8 @@
 
     async function ejecutar(promesa, textoOk) {
         var r = await promesa;
-        if (!r.ok) { mostrarMensaje(r.data.error || "No se pudo completar la acción.", "error"); return false; }
-        mostrarMensaje(textoOk || r.data.mensaje, "ok");
+        if (!r.ok) { notificar(r.data.error || "No se pudo completar la acción.", "error"); return false; }
+        notificar(textoOk || r.data.mensaje, "ok");
         cerrarPanel();
         await refrescar();
         return true;
@@ -189,9 +233,14 @@
                 el("button", { type: "button", class: "dt-btn secundario", text: "Editar / reprogramar", onclick: function () { mostrarFormulario(ev); } }),
                 el("button", {
                     type: "button", class: "dt-btn peligro", text: "Cancelar mantenimiento",
-                    onclick: function () {
-                        if (window.confirm("¿Cancelar este mantenimiento programado?"))
+                    onclick: async function () {
+                        var confirmado = await solicitarConfirmacionMant(
+                            "¿Estás seguro de que deseas cancelar este mantenimiento programado?",
+                            "¿Cancelar Mantenimiento?"
+                        );
+                        if (confirmado) {
                             ejecutar(DT.api("/api/mantenimientos/" + ev.id + "/cancelar", { method: "POST", body: {} }));
+                        }
                     }
                 })
             );
@@ -299,7 +348,6 @@
     var btnNuevo = document.getElementById("mant-nuevo");
     if (btnNuevo) btnNuevo.addEventListener("click", function () { mostrarFormulario(null); });
 
-    // Sigue al selector principal del dashboard cuando el usuario cambia de equipo allí.
     var selectorPrincipal = document.getElementById("selector-equipo");
     if (selectorPrincipal) {
         selectorPrincipal.addEventListener("change", function (e) {
