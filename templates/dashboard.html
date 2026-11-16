@@ -4,47 +4,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Gemelo Digital</title>
+    <title>Gemelo Digital - Espacios de Trabajo</title>
 
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/extras.css') }}">
 
     <style>
+        /* ============================================================
+           BARRA DE PESTAÑAS ESTILO NAVEGADOR (CHROME TABS)
+           ============================================================ */
+        .browser-tab-bar {
+            background-color: #0f172a;
+            padding: 10px 16px 0 16px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 8px;
+            border-bottom: 1px solid #cbd5e1;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+            overflow-x: auto;
+        }
+
+        .browser-tabs-group {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .browser-tab {
+            appearance: none;
+            border: none;
+            background: #1e293b;
+            color: #cbd5e1;
+            padding: 11px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            position: relative;
+        }
+
+        .browser-tab:hover:not(.active) {
+            background: #334155;
+            color: #ffffff;
+        }
+
+        .browser-tab.active {
+            background: #f1f5f9;
+            color: #0f172a;
+            font-weight: 700;
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .browser-tab-contextual {
+            background: #1e3a8a;
+            color: #e0e7ff;
+        }
+
+        .browser-tab-contextual.active {
+            background: #f1f5f9;
+            color: #1d4ed8;
+        }
+
+        .browser-tab-close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 13px;
+            line-height: 1;
+            margin-left: 4px;
+            color: inherit;
+            opacity: 0.75;
+        }
+
+        .browser-tab-close:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            opacity: 1;
+        }
+
+        .browser-tab-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: inline-block;
+        }
+
+        .browser-tab.active .browser-tab-dot {
+            background: #16a34a;
+        }
+
+        .browser-logout-tab {
+            background: #dc2626;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 9px 16px;
+            border-radius: 8px 8px 0 0;
+            font-size: 0.88rem;
+            font-weight: 700;
+            white-space: nowrap;
+            transition: background 0.2s ease;
+        }
+
+        .browser-logout-tab:hover {
+            background: #b91c1c;
+        }
+
+        /* Contenedores de vistas / workspaces */
+        .workspace-panel {
+            display: none;
+            animation: fadeInWorkspace 0.22s ease-out;
+        }
+
+        .workspace-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeInWorkspace {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
+           VISTA 1: DASHBOARD PRINCIPAL (PORTADA CORPORATIVA)
+           ============================================================ */
+        .home-hero-grid {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .home-brand-box,
+        .home-company-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px 30px;
+            flex: 1;
+            min-width: 260px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .home-brand-box { border-left: 6px solid #2563eb; }
+        .home-company-box { border-right: 6px solid #0f172a; text-align: right; }
+
+        .home-label-mini {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .home-brand-title { font-size: 2rem; font-weight: 800; color: #0f172a; margin: 0; }
+        .home-company-title { font-size: 1.85rem; font-weight: 800; color: #1d4ed8; margin: 0; }
+
+        .home-showcase-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-radius: 16px;
+            padding: 32px 24px;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 28px;
+            box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.25);
+        }
+
+        .home-showcase-card h2 { color: #ffffff; margin-top: 14px; margin-bottom: 6px; font-size: 1.4rem; }
+        .home-showcase-card p { color: #94a3b8; max-width: 650px; margin: 0 auto 20px auto; font-size: 0.96rem; }
+
+        .home-quick-nav { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+        .home-quick-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .home-quick-btn:hover { background: #2563eb; border-color: #2563eb; }
+
+        .home-footer-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+
+        .home-employee-badge {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-left: 5px solid #16a34a;
+            border-radius: 10px;
+            padding: 14px 22px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* ============================================================
+           BLOQUES DE ACTIVOS EN GEMELO DIGITAL
+           ============================================================ */
         .equipo-bloque {
-            margin-bottom: 32px;
+            margin-bottom: 24px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
         }
 
         .equipo-titulo {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 8px 12px;
+            gap: 10px 14px;
             padding-left: 12px;
             border-left: 4px solid #2563eb;
         }
 
-        .equipo-titulo h3 {
-            font-size: 1.15rem;
-            color: #0f172a;
-            margin: 0;
+        .equipo-titulo h3 { font-size: 1.15rem; color: #0f172a; margin: 0; }
+        .equipo-tipo { font-size: 0.9rem; color: var(--text-muted); margin: 0; }
+        .equipo-bloque .cards-grid { margin-top: 15px; }
+        .dashboard-card .value-texto { font-size: 20px; }
+
+        .activo-acciones-barra {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
-        .equipo-tipo {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin: 0;
+        .btn-activo-accion {
+            padding: 7px 13px;
+            font-size: 0.85rem;
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.18s ease;
         }
 
-        .equipo-bloque .cards-grid {
-            margin-top: 15px;
+        .btn-ver-alertas {
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        .btn-ver-alertas:hover {
+            background: #e2e8f0;
+        }
+        .btn-ver-alertas.tiene-alerta {
+            border-color: #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+        }
+        .btn-ver-alertas.tiene-paro {
+            border-color: #ef4444;
+            background: #fef2f2;
+            color: #991b1b;
         }
 
-        .dashboard-card .value-texto {
-            font-size: 20px;
+        .btn-editar-umbrales {
+            border: 1px solid #2563eb;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        .btn-editar-umbrales:hover {
+            background: #dbeafe;
         }
 
-        /* Indicadores visuales del sistema de alertas */
+        /* Indicadores visuales en tarjetas de variables */
         .dashboard-card.estado-normal { border-left: 5px solid #16a34a; }
         .dashboard-card.estado-alerta { border-left: 5px solid #ca8a04; background: #fffbeb; }
         .dashboard-card.estado-paro { border-left: 5px solid #dc2626; background: #fef2f2; }
@@ -53,11 +304,32 @@
         .badge-alerta { background: #fef3c7; color: #92400e; }
         .badge-paro { background: #fee2e2; color: #991b1b; }
         .badge-sin_datos { background: #e2e8f0; color: #334155; }
-        .evento-alerta { border-left: 5px solid #ca8a04; padding: 12px; margin: 10px 0; background: #fffbeb; border-radius: 6px; }
+
+        /* Cabecera de Pestañas Contextuales (Alertas / Umbrales) */
+        .context-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-left: 6px solid #2563eb;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+
+        .evento-alerta {
+            border-left: 5px solid #ca8a04;
+            padding: 14px 16px;
+            margin: 10px 0;
+            background: #fffbeb;
+            border-radius: 8px;
+        }
         .evento-paro { border-left-color: #dc2626; background: #fef2f2; }
-        .evento-normal { border-left-color: #16a34a; background: #f0fdf4; }
-        .alertas-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
-        .alertas-resumen span { padding: 8px 12px; background: #f1f5f9; border-radius: 6px; }
+        .alertas-resumen { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+        .alertas-resumen span { padding: 8px 14px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 600; }
 
         /* Panel de Líneas de Trabajo */
         .panel-lineas {
@@ -72,16 +344,8 @@
             margin-bottom: 20px;
             border: 1px solid #e2e8f0;
         }
-        .selector-linea {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 8px 12px;
-        }
-        .selector-linea label {
-            font-weight: 700;
-            color: #0f172a;
-        }
+        .selector-linea { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+        .selector-linea label { font-weight: 700; color: #0f172a; }
         .selector-linea select {
             padding: 10px 14px;
             border: 1px solid #cbd5e1;
@@ -96,10 +360,8 @@
         .modal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: rgba(15,23,42,0.65);
             z-index: 1000;
             align-items: center;
@@ -116,13 +378,7 @@
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
         }
 
-        /* Layout de 2 Columnas para Selección y Diagrama */
-        .diagrama-grid {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 24px;
-            margin-top: 18px;
-        }
+        .diagrama-grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; margin-top: 18px; }
         .panel-seleccion-activos {
             border: 1px solid #e2e8f0;
             border-radius: 8px;
@@ -145,13 +401,8 @@
             font-size: 0.95rem;
             font-weight: 600;
         }
-        .item-activo-btn:hover {
-            background: #eff6ff;
-            border-color: #2563eb;
-            color: #1d4ed8;
-        }
+        .item-activo-btn:hover { background: #eff6ff; border-color: #2563eb; color: #1d4ed8; }
 
-        /* Lienzo Canvas del Diagrama de Bloques */
         .canvas-flujo {
             background: #f8fafc;
             border: 2px dashed #cbd5e1;
@@ -182,14 +433,12 @@
         }
         .bloque-flujo .btn-eliminar-bloque {
             position: absolute;
-            top: -10px;
-            right: -10px;
+            top: -10px; right: -10px;
             background: #ef4444;
             color: #fff;
             border: none;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 24px; height: 24px;
             font-size: 14px;
             cursor: pointer;
             display: flex;
@@ -197,18 +446,33 @@
             justify-content: center;
             font-weight: bold;
         }
-        .flecha-conector {
-            font-size: 28px;
-            color: #475569;
-            font-weight: bold;
-            user-select: none;
-        }
+        .flecha-conector { font-size: 28px; color: #475569; font-weight: bold; user-select: none; }
 
-        /* SISTEMA DE NOTIFICACIONES TOAST (Reemplazo de alert()) */
+        /* Tabla de Administración de Personal */
+        .admin-grid { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 900px) {
+            .admin-grid, .diagrama-grid { grid-template-columns: 1fr; }
+        }
+        .admin-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .admin-form-group { margin-bottom: 14px; }
+        .admin-form-group label { display: block; font-weight: 700; font-size: 0.9rem; color: #1e293b; margin-bottom: 5px; }
+        .admin-form-group input,
+        .admin-form-group select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
+        .tabla-personal { width: 100%; border-collapse: collapse; }
+        .tabla-personal th { background: #0f172a; color: #ffffff; text-align: left; padding: 12px 14px; font-size: 0.9rem; }
+        .tabla-personal td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; font-size: 0.95rem; }
+        .tabla-personal tr:hover { background: #f8fafc; }
+
+        /* SISTEMA DE NOTIFICACIONES TOAST */
         .toast-container {
             position: fixed;
-            top: 24px;
-            right: 24px;
+            top: 56px; right: 24px;
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -248,118 +512,373 @@
 <!-- Contenedor dinámico de avisos Toast -->
 <div id="toast-container" class="toast-container"></div>
 
-<nav class="navbar">
-    <div class="navbar-title">
-        Gemelo Digital
+<!-- BARRA DE PESTAÑAS ESTILO NAVEGADOR -->
+<header class="browser-tab-bar" role="tablist" aria-label="Espacios de trabajo">
+    <div class="browser-tabs-group">
+        <button type="button" class="browser-tab active" role="tab" data-tab="tab-principal" onclick="cambiarPestana('tab-principal')">
+            <span class="browser-tab-dot"></span>
+            Dashboard principal
+        </button>
+
+        <button type="button" class="browser-tab" role="tab" data-tab="tab-gemelo" onclick="cambiarPestana('tab-gemelo')">
+            <span class="browser-tab-dot"></span>
+            Gemelo digital
+        </button>
+
+        <button type="button" class="browser-tab" role="tab" data-tab="tab-mantenimiento" onclick="cambiarPestana('tab-mantenimiento')">
+            <span class="browser-tab-dot"></span>
+            Calendario mantenimiento
+        </button>
+
+        {% if rol == "Tecnico" or rol == "Supervisor" %}
+        <button type="button" class="browser-tab" role="tab" data-tab="tab-auditoria" onclick="cambiarPestana('tab-auditoria')">
+            <span class="browser-tab-dot"></span>
+            Auditoría e informes
+        </button>
+        {% endif %}
+
+        {% if rol == "Supervisor" %}
+        <button type="button" class="browser-tab" role="tab" data-tab="tab-administracion" onclick="cambiarPestana('tab-administracion')">
+            <span class="browser-tab-dot"></span>
+            Administración
+        </button>
+        {% endif %}
+
+        <!-- Pestaña Contextual: Alertas del Activo Seleccionado -->
+        <button type="button" id="tab-btn-alertas" class="browser-tab browser-tab-contextual" role="tab" data-tab="tab-alertas-activo" onclick="cambiarPestana('tab-alertas-activo')" style="display: none;">
+            <span id="tab-label-alertas">🔔 Alertas del activo</span>
+            <span class="browser-tab-close" title="Cerrar pestaña" onclick="cerrarPestanaContextual(event, 'tab-btn-alertas', 'tab-alertas-activo')">×</span>
+        </button>
+
+        <!-- Pestaña Contextual: Umbrales de Medición del Activo Seleccionado -->
+        {% if rol in roles_umbrales %}
+        <button type="button" id="tab-btn-umbrales" class="browser-tab browser-tab-contextual" role="tab" data-tab="tab-umbrales" onclick="cambiarPestana('tab-umbrales')" style="display: none;">
+            <span id="tab-label-umbrales">⚙ Umbrales de medición</span>
+            <span class="browser-tab-close" title="Cerrar pestaña" onclick="cerrarPestanaContextual(event, 'tab-btn-umbrales', 'tab-umbrales')">×</span>
+        </button>
+        {% endif %}
     </div>
 
-    <div class="navbar-user">
-        {% if organizacion %}<span>{{ organizacion }}</span>{% endif %}
-        <span>{{ nombre }}</span>
-        <span>{{ numero_empleado }}</span>
-        <span class="role-badge">{{ rol }}</span>
-        <a href="{{ url_for('logout') }}" class="logout-btn">Cerrar sesión</a>
-    </div>
-</nav>
+    <a href="{{ url_for('logout') }}" class="browser-logout-tab">Cerrar sesión</a>
+</header>
 
 <main class="dashboard-container">
 
-    <h1>MONITOREO DE LÍNEAS DE TRABAJO</h1>
-    <p class="dashboard-subtitle">Sistema virtual de monitoreo, simulación y gestión industrial</p>
-
-    <!-- Selector Global y Control Administrativo de Líneas -->
-    <section class="dashboard-section">
-        <div class="panel-lineas">
-            <div class="selector-linea">
-                <label for="selector-linea">Línea de Trabajo Activa:</label>
-                <select id="selector-linea" onchange="cambiarLineaActiva()" aria-label="Seleccionar Línea de Trabajo"></select>
+    <!-- ===================================================================
+         PESTAÑA 1: DASHBOARD PRINCIPAL (PORTADA CORPORATIVA)
+         =================================================================== -->
+    <div id="tab-principal" class="workspace-panel active">
+        <div class="home-hero-grid">
+            <div class="home-brand-box">
+                <span class="home-label-mini">Plataforma Industrial PWA</span>
+                <h1 class="home-brand-title">Mikrosoft</h1>
+                <p style="margin: 6px 0 0 0; color: #475569; font-size: 0.95rem;">Sistema de Monitoreo y Gemelo Digital</p>
             </div>
 
-            {% if rol == "Supervisor" %}
-            <div style="display: flex; gap: 8px;">
-                <button class="btn-primary" onclick="abrirModalCrearLinea()">+ Crear Línea de Trabajo</button>
-                <button class="btn-primary" style="background: #475569;" onclick="abrirModalPersonal()">👤 Asignar Personal</button>
+            <div class="home-company-box">
+                <span class="home-label-mini">Empresa Registrada</span>
+                <h2 class="home-company-title">{{ organizacion or 'Organización Industrial' }}</h2>
+                <p style="margin: 6px 0 0 0; color: #475569; font-size: 0.95rem;">Entorno operativo activo en tiempo real</p>
             </div>
-            {% endif %}
         </div>
-    </section>
 
-    <!-- Secuencia Operativa de Activos de la Línea -->
-    <section class="dashboard-section">
-        <h2>Secuencia Operativa de la Línea</h2>
-        <div id="equipos" class="equipos-lista">
-            Cargando activos de la línea de trabajo...
+        <div class="home-showcase-card">
+            <svg width="260" height="125" viewBox="0 0 260 125" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Ilustración Gemelo Digital Industrial">
+                <rect x="10" y="15" width="240" height="95" rx="14" fill="#0f172a" stroke="#3b82f6" stroke-width="2"/>
+                <rect x="28" y="45" width="44" height="36" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                <circle cx="50" cy="63" r="8" stroke="#38bdf8" stroke-width="2"/>
+                <path d="M72 63H98" stroke="#10b981" stroke-width="2.5" stroke-dasharray="4 3"/>
+                <polygon points="98,59 105,63 98,67" fill="#10b981"/>
+
+                <rect x="108" y="40" width="44" height="46" rx="6" fill="#1e293b" stroke="#10b981" stroke-width="2"/>
+                <path d="M118 68L126 56L134 64L142 50" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M152 63H178" stroke="#10b981" stroke-width="2.5" stroke-dasharray="4 3"/>
+                <polygon points="178,59 185,63 178,67" fill="#10b981"/>
+
+                <rect x="188" y="45" width="44" height="36" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+                <rect x="198" y="55" width="24" height="16" rx="3" stroke="#f59e0b" stroke-width="2"/>
+                <circle cx="130" cy="26" r="4" fill="#38bdf8"/>
+                <path d="M118 22C125 16 135 16 142 22" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+
+            <h2>Ecosistema de Gemelo Digital en Tiempo Real</h2>
+            <p>
+                Supervisa el flujo continuo de tus líneas de producción, inspecciona alertas individuales por activo,
+                calibra umbrales de medición y audita el rendimiento operativo desde cualquier dispositivo.
+            </p>
+
+            <div class="home-quick-nav">
+                <button type="button" class="home-quick-btn" onclick="cambiarPestana('tab-gemelo')">
+                    ⚙️ Ir a Gemelo Digital
+                </button>
+                <button type="button" class="home-quick-btn" onclick="cambiarPestana('tab-mantenimiento')">
+                    📅 Ir a Calendario de Mantenimiento
+                </button>
+                {% if rol == "Tecnico" or rol == "Supervisor" %}
+                <button type="button" class="home-quick-btn" onclick="cambiarPestana('tab-auditoria')">
+                    📄 Ir a Auditoría e Informes
+                </button>
+                {% endif %}
+                {% if rol == "Supervisor" %}
+                <button type="button" class="home-quick-btn" onclick="cambiarPestana('tab-administracion')">
+                    👥 Ir a Administración de Personal
+                </button>
+                {% endif %}
+            </div>
         </div>
-    </section>
 
-    <!-- Alertas Exclusivas de la Línea Activa -->
-    <section class="dashboard-section">
-        <h2>Alertas de la Línea Activa</h2>
-        <div id="resumen-alertas" class="alertas-resumen">
-            <span>Normales: --</span><span>Alertas: --</span><span>Críticas: --</span>
+        <div class="home-footer-row">
+            <div class="home-employee-badge">
+                <div>
+                    <div style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Empleado en Sesión</div>
+                    <div style="font-size: 1.05rem; font-weight: 800; color: #0f172a;">
+                        {{ nombre }} <span style="color: #64748b; font-weight: 600;">(#{{ numero_empleado }})</span>
+                    </div>
+                </div>
+                <span class="role-badge">{{ rol }}</span>
+            </div>
         </div>
-        <div id="lista-eventos-alerta">Cargando eventos de la línea...</div>
-        <p class="dashboard-subtitle">Las alertas corresponden únicamente a los activos configurados en esta línea de trabajo.</p>
-    </section>
+    </div>
 
-    {% include "partials/mantenimiento.html" %}
+    <!-- ===================================================================
+         PESTAÑA 2: GEMELO DIGITAL (VISTA LIMPIA POR LÍNEA DE TRABAJO)
+         =================================================================== -->
+    <div id="tab-gemelo" class="workspace-panel">
+        <h1>GEMELO DIGITAL DE LÍNEAS DE TRABAJO</h1>
+        <p class="dashboard-subtitle">Monitoreo en tiempo real de los activos configurados en cada línea de producción</p>
 
-    {% if rol == "Tecnico" or rol == "Supervisor" %}
+        <!-- Selector Global y Creación de Líneas -->
+        <section class="dashboard-section">
+            <div class="panel-lineas">
+                <div class="selector-linea">
+                    <label for="selector-linea">Línea de Trabajo Activa:</label>
+                    <select id="selector-linea" onchange="cambiarLineaActiva()" aria-label="Seleccionar Línea de Trabajo"></select>
+                </div>
 
-    <section class="dashboard-section">
-        <h2>Control de Línea</h2>
-        <div class="action-buttons">
-            <button onclick="ejecutarFuncion('encender')">Encender sistema</button>
-            <button onclick="ejecutarFuncion('detener')">Detener sistema</button>
-            <button onclick="ejecutarFuncion('emergencia')">Paro de emergencia</button>
+                {% if rol == "Supervisor" %}
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-primary" onclick="abrirModalCrearLinea()">+ Crear Línea de Trabajo</button>
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Secuencia Operativa de Activos de la Línea -->
+        <section class="dashboard-section">
+            <h2>Secuencia Operativa de la Línea</h2>
+            <div id="equipos" class="equipos-lista">
+                Cargando activos de la línea de trabajo...
+            </div>
+        </section>
+
+        {% if rol == "Tecnico" or rol == "Supervisor" %}
+        <section class="dashboard-section">
+            <h2>Control Global de Línea</h2>
+            <div class="action-buttons">
+                <button onclick="ejecutarFuncion('encender')">Encender sistema</button>
+                <button onclick="ejecutarFuncion('detener')">Detener sistema</button>
+                <button onclick="ejecutarFuncion('emergencia')">Paro de emergencia</button>
+            </div>
+        </section>
+
+        <section class="dashboard-section">
+            <h2>Configuración técnica</h2>
+            <div class="configuration-card">
+                <p><strong>Línea:</strong> <span id="nombre-linea">--</span></p>
+                <p><strong>Velocidad configurada:</strong> <span id="velocidad-config">--</span></p>
+                <p><strong>Temperatura configurada:</strong> <span id="temperatura-config">--</span></p>
+                <p><strong>Presión configurada:</strong> <span id="presion-config">--</span></p>
+            </div>
+        </section>
+        {% endif %}
+    </div>
+
+    <!-- ===================================================================
+         PESTAÑA CONTEXTUAL A: ALERTAS Y DIAGNÓSTICO DE UN ACTIVO ESPECÍFICO
+         =================================================================== -->
+    <div id="tab-alertas-activo" class="workspace-panel">
+        <div class="context-header-bar">
+            <div>
+                <span class="home-label-mini" id="alertas-contexto-linea">Línea de Trabajo</span>
+                <h1 id="alertas-contexto-titulo" style="margin: 2px 0; font-size: 1.55rem;">Alertas del Activo</h1>
+                <p id="alertas-contexto-subtitulo" class="dashboard-subtitle" style="margin: 0;">Historial de avisos de mal funcionamiento registrados para este activo</p>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                {% if rol == "Tecnico" or rol == "Supervisor" %}
+                <button type="button" onclick="limpiarHistorialActivo()" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-weight: 700; cursor: pointer;">
+                    🗑️ Limpiar historial
+                </button>
+                {% endif %}
+                <button type="button" class="btn-primary" onclick="cambiarPestana('tab-gemelo')" style="padding: 10px 16px;">
+                    ← Volver a Gemelo digital
+                </button>
+            </div>
         </div>
-    </section>
 
-    <section class="dashboard-section">
-        <h2>Auditoría de Línea e Informes</h2>
-        <div class="action-buttons" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="exportarAuditoriaLinea('pdf')" style="padding: 12px 20px; background-color: #2563eb; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
-                📄 Reporte PDF (Línea Activa)
+        <section class="dashboard-section">
+            <h3>Estado Actual de Mediciones del Activo</h3>
+            <div id="resumen-alertas-activo" class="alertas-resumen">
+                <span>Normales: --</span><span>Advertencias: --</span><span>Críticas: --</span>
+            </div>
+            <div id="variables-fuera-rango-activo"></div>
+        </section>
+
+        <section class="dashboard-section">
+            <h3>Historial de Avisos de Mal Funcionamiento</h3>
+            <div id="lista-eventos-activo">Selecciona un activo desde el Gemelo Digital para consultar sus avisos.</div>
+        </section>
+    </div>
+
+    <!-- ===================================================================
+         PESTAÑA CONTEXTUAL B: UMBRALES DE MEDICIÓN DEL ACTIVO SELECCIONADO
+         =================================================================== -->
+    {% if rol in roles_umbrales %}
+    <div id="tab-umbrales" class="workspace-panel">
+        <div class="context-header-bar">
+            <div>
+                <span class="home-label-mini" id="umbrales-contexto-linea">Configuración en Tiempo Real</span>
+                <h1 id="umbrales-contexto-titulo" style="margin: 2px 0; font-size: 1.55rem;">Umbrales de Medición</h1>
+                <p class="dashboard-subtitle" style="margin: 0;">Los límites guardados aplican de inmediato al sistema de evaluación del activo</p>
+            </div>
+
+            <button type="button" class="btn-primary" onclick="cambiarPestana('tab-gemelo')" style="padding: 10px 16px;">
+                ← Volver a Gemelo digital
             </button>
-            <button onclick="exportarAuditoriaLinea('csv')" style="padding: 12px 20px; background-color: #10b981; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
-                📊 Reporte CSV (Línea Activa)
-            </button>
-            <button onclick="exportarReporteConsolidado()" style="padding: 12px 20px; background-color: #0f172a; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
-                🌐 Reporte Consolidado (N Líneas / Zonas)
-            </button>
         </div>
-    </section>
 
-    <section class="dashboard-section">
-        <h2>Configuración técnica</h2>
-        <div class="configuration-card">
-            <p><strong>Línea:</strong> <span id="nombre-linea">--</span></p>
-            <p><strong>Velocidad configurada:</strong> <span id="velocidad-config">--</span></p>
-            <p><strong>Temperatura configurada:</strong> <span id="temperatura-config">--</span></p>
-            <p><strong>Presión configurada:</strong> <span id="presion-config">--</span></p>
-        </div>
-    </section>
-
-    {% include "partials/umbrales.html" %}
-
+        {% include "partials/umbrales.html" %}
+    </div>
     {% endif %}
 
+    <!-- ===================================================================
+         PESTAÑA 3: CALENDARIO DE MANTENIMIENTO
+         =================================================================== -->
+    <div id="tab-mantenimiento" class="workspace-panel">
+        <h1>CALENDARIO DE MANTENIMIENTO</h1>
+        <p class="dashboard-subtitle">Programación, seguimiento y cierre de mantenimientos preventivos y correctivos por activo</p>
+
+        {% include "partials/mantenimiento.html" %}
+    </div>
+
+    <!-- ===================================================================
+         PESTAÑA 4: AUDITORÍA E INFORMES
+         =================================================================== -->
+    {% if rol == "Tecnico" or rol == "Supervisor" %}
+    <div id="tab-auditoria" class="workspace-panel">
+        <h1>AUDITORÍA E INFORMES OPERACIONALES</h1>
+        <p class="dashboard-subtitle">Generación de reportes técnicos individuales por línea y consolidados de planta</p>
+
+        <section class="dashboard-section">
+            <div class="panel-lineas">
+                <div class="selector-linea">
+                    <label for="selector-linea-auditoria">Seleccionar Línea a Auditar:</label>
+                    <select id="selector-linea-auditoria" onchange="sincronizarLineaAuditoria()" aria-label="Línea a Auditar"></select>
+                </div>
+
+                <a id="btn-vista-auditoria" href="/auditoria/linea/1" class="btn-primary" style="text-decoration: none; padding: 10px 18px;">
+                    🔍 Ver Dictamen Detallado en Pantalla
+                </a>
+            </div>
+
+            <div class="cards-grid" style="margin-top: 20px;">
+                <div class="dashboard-card">
+                    <h3>Reporte Individual PDF</h3>
+                    <p style="color: #64748b; font-size: 0.92rem; margin-bottom: 16px;">
+                        Genera un documento formal en PDF con el dictamen de salud y telemetría de cada activo de la línea seleccionada.
+                    </p>
+                    <button onclick="exportarAuditoriaLinea('pdf')" style="width: 100%; padding: 12px 16px; background-color: #2563eb; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                        📄 Descargar Reporte PDF
+                    </button>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>Exportación de Datos CSV</h3>
+                    <p style="color: #64748b; font-size: 0.92rem; margin-bottom: 16px;">
+                        Descarga la tabla de variables operativas de la línea seleccionada en formato CSV compatible con Excel.
+                    </p>
+                    <button onclick="exportarAuditoriaLinea('csv')" style="width: 100%; padding: 12px 16px; background-color: #10b981; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                        📊 Descargar Reporte CSV
+                    </button>
+                </div>
+
+                <div class="dashboard-card">
+                    <h3>Reporte Consolidado Multi-Línea</h3>
+                    <p style="color: #64748b; font-size: 0.92rem; margin-bottom: 16px;">
+                        Consolida el estado operacional de todas las líneas de trabajo registradas en la empresa en un solo PDF.
+                    </p>
+                    <button onclick="exportarReporteConsolidado()" style="width: 100%; padding: 12px 16px; background-color: #0f172a; color: white; border-radius: 8px; border: none; font-weight: bold; cursor: pointer;">
+                        🌐 Descargar Consolidado PDF
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+    {% endif %}
+
+    <!-- ===================================================================
+         PESTAÑA 5: ADMINISTRACIÓN DE PERSONAL (SOLO SUPERVISOR)
+         =================================================================== -->
     {% if rol == "Supervisor" %}
+    <div id="tab-administracion" class="workspace-panel">
+        <h1>ADMINISTRACIÓN DE PERSONAL</h1>
+        <p class="dashboard-subtitle">Gestión de operarios, técnicos y supervisores registrados en {{ organizacion or 'la empresa' }}</p>
 
-    <section class="dashboard-section">
-        <h2>Administración</h2>
-        <div class="cards-grid">
-            <div class="dashboard-card">
-                <h3>Gestión de usuarios</h3>
-                <p>Administración de usuarios y permisos.</p>
-            </div>
-            <div class="dashboard-card">
-                <h3>Control de roles</h3>
-                <p>Supervisor con acceso a funciones administrativas.</p>
-            </div>
-        </div>
-    </section>
+        <section class="dashboard-section">
+            <div class="admin-grid">
+                <div class="admin-card">
+                    <h3 style="margin-top: 0; margin-bottom: 14px; color: #0f172a;">+ Registrar Nuevo Personal</h3>
 
+                    <div class="admin-form-group">
+                        <label for="admin-nombre">Nombre Completo</label>
+                        <input type="text" id="admin-nombre" placeholder="Ej. Laura Ramírez">
+                    </div>
+
+                    <div class="admin-form-group">
+                        <label for="admin-num-empleado">Número de Empleado</label>
+                        <input type="text" id="admin-num-empleado" placeholder="Ej. 4012">
+                    </div>
+
+                    <div class="admin-form-group">
+                        <label for="admin-password">Contraseña de Acceso</label>
+                        <input type="password" id="admin-password" placeholder="Mínimo 4 caracteres">
+                    </div>
+
+                    <div class="admin-form-group">
+                        <label for="admin-rol">Rol en Plataforma</label>
+                        <select id="admin-rol">
+                            <option value="Operador">Operador</option>
+                            <option value="Tecnico">Técnico</option>
+                            <option value="Supervisor">Supervisor</option>
+                        </select>
+                    </div>
+
+                    <button type="button" class="btn-primary" style="width: 100%; padding: 12px;" onclick="agregarPersonal()">
+                        Guardar Personal
+                    </button>
+                </div>
+
+                <div class="admin-card">
+                    <h3 style="margin-top: 0; margin-bottom: 14px; color: #0f172a;">Personal Activo en la Empresa</h3>
+                    <div class="tabla-scroll">
+                        <table class="tabla-personal">
+                            <thead>
+                                <tr>
+                                    <th>No. Empleado</th>
+                                    <th>Nombre</th>
+                                    <th>Rol</th>
+                                    <th style="text-align: right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-personal-body">
+                                <tr><td colspan="4">Cargando lista de personal...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
     {% endif %}
 
 </main>
@@ -376,13 +895,11 @@
         </div>
 
         <div class="diagrama-grid">
-            <!-- Panel Izquierdo: Selección de Activos Disponibles -->
             <div>
                 <label style="font-weight: bold; display: block; margin-bottom: 6px;">Seleccionar Activos:</label>
                 <div id="panel-activos-disponibles" class="panel-seleccion-activos"></div>
             </div>
 
-            <!-- Panel Derecho: Lienzo Visual con Diagrama de Flujo -->
             <div>
                 <label style="font-weight: bold; display: block; margin-bottom: 6px;">Diagrama de Flujo de la Secuencia:</label>
                 <div id="canvas-flujo" class="canvas-flujo"></div>
@@ -396,17 +913,22 @@
     </div>
 </div>
 
-<!-- Modal: Asignación de Personal (Solo Supervisor) -->
-<div id="modal-personal" class="modal">
-    <div class="modal-contenido-diagrama" style="max-width: 500px;">
-        <h3>Asignar Personal a la Línea</h3>
-        <p class="dashboard-subtitle">Vincula operarios y técnicos a esta línea de trabajo.</p>
-        
-        <label style="font-weight: bold; display: block; margin-top: 10px;">Rol asignado en celda:</label>
-        <input type="text" id="personal-rol" placeholder="Ej. Operador Principal / Líder de Celda" style="width: 100%; padding: 8px; margin: 6px 0 12px; border-radius: 6px; border: 1px solid #cbd5e1;">
+<!-- Modal de Confirmación PWA para Administración -->
+<div id="modal-confirm-admin" class="modal">
+    <div class="modal-contenido-diagrama" style="max-width: 420px; text-align: center; padding: 24px;">
+        <div style="font-size: 2.5rem; color: #ef4444; margin-bottom: 8px; line-height: 1;">⚠️</div>
+        <h3 id="admin-confirm-titulo" style="margin: 0 0 8px 0; font-size: 1.25rem; color: #0f172a;">¿Confirmar acción?</h3>
+        <p id="admin-confirm-mensaje" style="margin: 0 0 20px 0; font-size: 0.95rem; color: #64748b; line-height: 1.4;">
+            ¿Estás seguro de continuar?
+        </p>
 
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-            <button onclick="cerrarModalPersonal()" style="padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer;">Cerrar</button>
+        <div style="display: flex; justify-content: center; gap: 12px;">
+            <button type="button" id="btn-admin-confirm-cancelar" style="padding: 10px 18px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; color: #334155; cursor: pointer; font-weight: bold; font-size: 0.9rem;">
+                Cancelar
+            </button>
+            <button type="button" id="btn-admin-confirm-aceptar" class="btn-primary" style="background: #ef4444; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold; font-size: 0.9rem;">
+                Confirmar
+            </button>
         </div>
     </div>
 </div>
@@ -418,7 +940,43 @@
     let equiposDatos = [];
     let secuenciaDiagrama = [];
 
-    // Función global para mostrar avisos Toast elegantes en lugar de alert()
+    // Contexto activo para la pestaña de alertas individuales
+    let contextoAlertaActivo = null; // { lineaId, lineaNombre, equipoId, equipoNombre, equipoTipo }
+
+    // ------------------------------------------------------------
+    // NAVEGACIÓN ENTRE PESTAÑAS ESTILO NAVEGADOR
+    // ------------------------------------------------------------
+    function cambiarPestana(tabId) {
+        const panelDestino = document.getElementById(tabId);
+        if (!panelDestino) return;
+
+        document.querySelectorAll(".browser-tab").forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.tab === tabId);
+        });
+
+        document.querySelectorAll(".workspace-panel").forEach(panel => {
+            panel.classList.toggle("active", panel.id === tabId);
+        });
+
+        if (tabId === "tab-administracion" && ROL_USUARIO === "Supervisor") {
+            cargarPersonal();
+        }
+        if (tabId === "tab-alertas-activo" && contextoAlertaActivo) {
+            actualizarAlertasActivo();
+        }
+    }
+
+    function cerrarPestanaContextual(event, tabBtnId, panelId) {
+        event.stopPropagation();
+        const tabBtn = document.getElementById(tabBtnId);
+        const panel = document.getElementById(panelId);
+        if (tabBtn) tabBtn.style.display = "none";
+        if (panel && panel.classList.contains("active")) {
+            cambiarPestana("tab-gemelo");
+        }
+    }
+
+    // Notificaciones Toast PWA
     function mostrarToast(mensaje, tipo = "exito") {
         const contenedor = document.getElementById("toast-container");
         const toast = document.createElement("div");
@@ -437,23 +995,42 @@
         }, 3500);
     }
 
+    function obtenerNombreLineaActual() {
+        const encontrada = lineasRegistradas.find(l => l.id === lineaActivaId);
+        return encontrada ? encontrada.nombre : `Línea #${lineaActivaId}`;
+    }
+
     async function cargarLineas() {
         try {
             const respuesta = await fetch("/api/lineas");
             lineasRegistradas = await respuesta.json();
 
             const selector = document.getElementById("selector-linea");
+            const selectorAuditoria = document.getElementById("selector-linea-auditoria");
+
             selector.replaceChildren();
+            if (selectorAuditoria) selectorAuditoria.replaceChildren();
 
             lineasRegistradas.forEach(linea => {
                 const opcion = document.createElement("option");
                 opcion.value = linea.id;
                 opcion.textContent = linea.nombre;
                 selector.appendChild(opcion);
+
+                if (selectorAuditoria) {
+                    const opAud = document.createElement("option");
+                    opAud.value = linea.id;
+                    opAud.textContent = linea.nombre;
+                    selectorAuditoria.appendChild(opAud);
+                }
             });
 
             if (lineasRegistradas.length > 0) {
                 selector.value = lineaActivaId;
+                if (selectorAuditoria) {
+                    selectorAuditoria.value = lineaActivaId;
+                    actualizarEnlaceAuditoria(lineaActivaId);
+                }
             }
 
             actualizarEquipos();
@@ -464,10 +1041,180 @@
 
     function cambiarLineaActiva() {
         lineaActivaId = parseInt(document.getElementById("selector-linea").value);
+        const selectorAud = document.getElementById("selector-linea-auditoria");
+        if (selectorAud) {
+            selectorAud.value = lineaActivaId;
+            actualizarEnlaceAuditoria(lineaActivaId);
+        }
         actualizarEquipos();
-        actualizarAlertas();
     }
 
+    function sincronizarLineaAuditoria() {
+        const selectorAud = document.getElementById("selector-linea-auditoria");
+        if (!selectorAud) return;
+        lineaActivaId = parseInt(selectorAud.value);
+        document.getElementById("selector-linea").value = lineaActivaId;
+        actualizarEnlaceAuditoria(lineaActivaId);
+        actualizarEquipos();
+    }
+
+    function actualizarEnlaceAuditoria(id) {
+        const btn = document.getElementById("btn-vista-auditoria");
+        if (btn) btn.href = `/auditoria/linea/${id}`;
+    }
+
+    // ------------------------------------------------------------
+    // ABRIR PESTAÑA DEDICADA: ALERTAS DE UN ACTIVO EN LA LÍNEA
+    // ------------------------------------------------------------
+    function abrirPestanaAlertasActivo(equipo) {
+        const nombreLinea = obtenerNombreLineaActual();
+        contextoAlertaActivo = {
+            lineaId: lineaActivaId,
+            lineaNombre: nombreLinea,
+            equipoId: equipo.id,
+            equipoNombre: equipo.nombre,
+            equipoTipo: equipo.tipo
+        };
+
+        const tabBtn = document.getElementById("tab-btn-alertas");
+        const tabLabel = document.getElementById("tab-label-alertas");
+        if (tabBtn && tabLabel) {
+            tabLabel.textContent = `🔔 Alertas: ${equipo.nombre}`;
+            tabBtn.style.display = "inline-flex";
+        }
+
+        document.getElementById("alertas-contexto-linea").textContent = `Línea activa: ${nombreLinea}`;
+        document.getElementById("alertas-contexto-titulo").textContent = `Alertas de ${equipo.nombre}`;
+        document.getElementById("alertas-contexto-subtitulo").textContent = `${equipo.tipo} · Avisos de mal funcionamiento registrados en esta línea`;
+
+        cambiarPestana("tab-alertas-activo");
+    }
+
+    async function actualizarAlertasActivo() {
+        if (!contextoAlertaActivo) return;
+
+        // 1. Evaluar variables en vivo del activo seleccionado
+        const eqLive = equiposDatos.find(e => e.id === contextoAlertaActivo.equipoId);
+        const resumenDiv = document.getElementById("resumen-alertas-activo");
+        const fueraRangoDiv = document.getElementById("variables-fuera-rango-activo");
+
+        if (eqLive && eqLive.variables) {
+            const normales = eqLive.variables.filter(v => v.severidad === "normal").length;
+            const alertas = eqLive.variables.filter(v => v.severidad === "alerta").length;
+            const criticas = eqLive.variables.filter(v => v.severidad === "paro").length;
+
+            resumenDiv.innerHTML =
+                `<span style="color:#166534;">✓ Normales: ${normales}</span>` +
+                `<span style="color:#92400e;">⚠ Advertencias: ${alertas}</span>` +
+                `<span style="color:#991b1b;">🛑 Críticas: ${criticas}</span>`;
+
+            const anomaliasActuales = eqLive.variables.filter(v => v.severidad === "alerta" || v.severidad === "paro");
+            fueraRangoDiv.replaceChildren();
+
+            if (anomaliasActuales.length > 0) {
+                anomaliasActuales.forEach(v => {
+                    const card = document.createElement("div");
+                    card.className = "evento-alerta" + (v.severidad === "paro" ? " evento-paro" : "");
+                    card.innerHTML = `<strong>[EN VIVO] ${v.etiqueta}: ${v.valor} ${v.unidad || ""}</strong><p style="margin:4px 0 0 0;">${v.mensaje_alerta}</p>`;
+                    fueraRangoDiv.appendChild(card);
+                });
+            }
+        }
+
+        // 2. Consultar historial filtrado estrictamente por linea_id y equipo_id
+        try {
+            const url = `/api/alertas?linea_id=${contextoAlertaActivo.lineaId}&equipo_id=${encodeURIComponent(contextoAlertaActivo.equipoId)}`;
+            const resp = await fetch(url);
+            if (!resp.ok) return;
+
+            const datos = await resp.json();
+            const contenedor = document.getElementById("lista-eventos-activo");
+            const eventos = datos.eventos || [];
+
+            if (!eventos.length) {
+                contenedor.innerHTML = `<div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:18px; color:#64748b;">
+                    No existen avisos de mal funcionamiento registrados para <strong>${contextoAlertaActivo.equipoNombre}</strong> en <strong>${contextoAlertaActivo.lineaNombre}</strong>.
+                </div>`;
+                return;
+            }
+
+            const nombresSeveridad = { alerta: "ADVERTENCIA", paro: "CRÍTICO" };
+            contenedor.replaceChildren();
+
+            eventos.forEach(evento => {
+                const articulo = document.createElement("article");
+                articulo.className = "evento-alerta" + (evento.severidad === "paro" ? " evento-paro" : "");
+
+                const titulo = document.createElement("strong");
+                titulo.textContent = `${evento.variable} — ${nombresSeveridad[evento.severidad] || evento.severidad.toUpperCase()}`;
+
+                const detalle = document.createElement("p");
+                detalle.style.margin = "4px 0";
+                detalle.textContent = `Lectura registrada: ${evento.valor ?? "--"} ${evento.unidad || ""}. ${evento.mensaje}`;
+
+                const fecha = document.createElement("small");
+                fecha.style.color = "#475569";
+                fecha.textContent = `Fecha y hora: ${evento.fecha_hora}`;
+
+                articulo.append(titulo, detalle, fecha);
+                contenedor.appendChild(articulo);
+            });
+        } catch (err) {
+            console.error("Error cargando alertas del activo:", err);
+        }
+    }
+
+    async function limpiarHistorialActivo() {
+        if (!contextoAlertaActivo) return;
+
+        const confirmado = await solicitarConfirmacionAdmin(
+            `¿Deseas eliminar el historial de avisos de ${contextoAlertaActivo.equipoNombre} en ${contextoAlertaActivo.lineaNombre}?`,
+            "Limpiar historial de avisos"
+        );
+        if (!confirmado) return;
+
+        try {
+            const url = `/api/alertas?linea_id=${contextoAlertaActivo.lineaId}&equipo_id=${encodeURIComponent(contextoAlertaActivo.equipoId)}`;
+            const resp = await fetch(url, { method: "DELETE" });
+            const datos = await resp.json();
+            if (!resp.ok) {
+                mostrarToast(datos.error || "No se pudo limpiar el historial.", "error");
+                return;
+            }
+            mostrarToast(datos.mensaje, "exito");
+            actualizarAlertasActivo();
+        } catch (err) {
+            mostrarToast("Error de conexión con el servidor.", "error");
+        }
+    }
+
+    // ------------------------------------------------------------
+    // ABRIR PESTAÑA DEDICADA: UMBRALES DE MEDICIÓN DE UN ACTIVO
+    // ------------------------------------------------------------
+    function abrirPestanaUmbralesActivo(equipo) {
+        const tabBtn = document.getElementById("tab-btn-umbrales");
+        const tabLabel = document.getElementById("tab-label-umbrales");
+        if (!tabBtn) return;
+
+        const nombreLinea = obtenerNombreLineaActual();
+        tabLabel.textContent = `⚙ Umbrales: ${equipo.nombre}`;
+        tabBtn.style.display = "inline-flex";
+
+        document.getElementById("umbrales-contexto-linea").textContent = `Línea activa: ${nombreLinea}`;
+        document.getElementById("umbrales-contexto-titulo").textContent = `Umbrales de Medición — ${equipo.nombre}`;
+
+        const selectorUmbral = document.getElementById("umbral-equipo");
+        if (selectorUmbral && equipo.base_id) {
+            selectorUmbral.value = equipo.base_id;
+            selectorUmbral.dispatchEvent(new Event("change"));
+        }
+
+        cambiarPestana("tab-umbrales");
+    }
+
+    // ------------------------------------------------------------
+    // GESTIÓN DE ACTIVOS EN GEMELO DIGITAL
+    // ------------------------------------------------------------
     async function cambiarEstadoActivo(equipoId, nuevoEstado) {
         try {
             const respuesta = await fetch(`/api/lineas/${lineaActivaId}/estado-equipo`, {
@@ -528,23 +1275,39 @@
 
         titulo.append(nombre, tipo, insignia);
 
-        if (ROL_USUARIO === "Tecnico" || ROL_USUARIO === "Supervisor") {
-            const contenedorAcciones = document.createElement("div");
-            contenedorAcciones.style.marginLeft = "auto";
+        const contenedorAcciones = document.createElement("div");
+        contenedorAcciones.className = "activo-acciones-barra";
 
-            const btnEstado = document.createElement("button");
-            btnEstado.id = "btn-control-" + equipo.id;
-            btnEstado.style.padding = "6px 14px";
-            btnEstado.style.fontSize = "0.85rem";
-            btnEstado.style.borderRadius = "6px";
-            btnEstado.style.cursor = "pointer";
-            btnEstado.style.border = "none";
-            btnEstado.style.fontWeight = "bold";
+        // Botón para abrir la pestaña de alertas de este activo en esta línea
+        const btnAlertas = document.createElement("button");
+        btnAlertas.type = "button";
+        btnAlertas.id = "btn-alertas-" + equipo.id;
+        btnAlertas.className = "btn-activo-accion btn-ver-alertas";
+        btnAlertas.textContent = "🔔 Alertas";
+        btnAlertas.onclick = () => abrirPestanaAlertasActivo(equipo);
+        contenedorAcciones.appendChild(btnAlertas);
 
-            contenedorAcciones.appendChild(btnEstado);
-            titulo.appendChild(contenedorAcciones);
+        // Botón para abrir la pestaña de modificación de umbrales de este activo
+        if (document.getElementById("sec-umbrales")) {
+            const btnUmbral = document.createElement("button");
+            btnUmbral.type = "button";
+            btnUmbral.className = "btn-activo-accion btn-editar-umbrales";
+            btnUmbral.textContent = "⚙ Umbrales";
+            btnUmbral.onclick = () => abrirPestanaUmbralesActivo(equipo);
+            contenedorAcciones.appendChild(btnUmbral);
         }
 
+        // Botón de encendido / apagado individual del activo
+        if (ROL_USUARIO === "Tecnico" || ROL_USUARIO === "Supervisor") {
+            const btnEstado = document.createElement("button");
+            btnEstado.type = "button";
+            btnEstado.id = "btn-control-" + equipo.id;
+            btnEstado.className = "btn-activo-accion";
+            btnEstado.style.border = "none";
+            contenedorAcciones.appendChild(btnEstado);
+        }
+
+        titulo.appendChild(contenedorAcciones);
         bloque.appendChild(titulo);
 
         const grid = document.createElement("div");
@@ -593,6 +1356,23 @@
             const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
             insignia.className = "equipo-estado-alerta badge-" + sev;
             insignia.textContent = nombres[sev] || "Sin datos";
+        }
+
+        // Actualizar indicador discreto en el botón de Alertas del activo
+        const btnAlertas = document.getElementById("btn-alertas-" + equipo.id);
+        if (btnAlertas) {
+            const anomalias = (equipo.variables || []).filter(v => v.severidad === "alerta" || v.severidad === "paro");
+            btnAlertas.classList.remove("tiene-alerta", "tiene-paro");
+            if (anomalias.some(v => v.severidad === "paro")) {
+                btnAlertas.classList.add("tiene-paro");
+                btnAlertas.textContent = `🔔 Alertas (${anomalias.length})`;
+            } else if (anomalias.length > 0) {
+                btnAlertas.classList.add("tiene-alerta");
+                btnAlertas.textContent = `🔔 Alertas (${anomalias.length})`;
+            } else {
+                btnAlertas.textContent = "🔔 Alertas";
+            }
+            btnAlertas.onclick = () => abrirPestanaAlertasActivo(equipo);
         }
 
         equipo.variables.forEach(function(variable, indice) {
@@ -646,52 +1426,6 @@
         }
     }
 
-    async function actualizarAlertas() {
-        try {
-            const respuestaEventos = await fetch(`/api/alertas?linea_id=${lineaActivaId}`);
-            if (!respuestaEventos.ok) return;
-
-            const datosEventos = await respuestaEventos.json();
-            const variables = equiposDatos.flatMap(e => e.variables || []);
-            const normales = variables.filter(v => v.severidad === "normal").length;
-            const alertas = variables.filter(v => v.severidad === "alerta").length;
-            const criticas = variables.filter(v => v.severidad === "paro").length;
-
-            document.getElementById("resumen-alertas").innerHTML =
-                `<span>Normales: ${normales}</span><span>Alertas: ${alertas}</span><span>Críticas: ${criticas}</span>`;
-
-            const contenedor = document.getElementById("lista-eventos-alerta");
-            let eventos = datosEventos.eventos || [];
-
-            if (!eventos.length) {
-                contenedor.textContent = "No se han registrado eventos de alerta en esta línea de trabajo.";
-                return;
-            }
-
-            const nombresSeveridad = { alerta: "ALERTA", paro: "CRÍTICO" };
-            contenedor.replaceChildren();
-
-            eventos.forEach(function(evento) {
-                const articulo = document.createElement("article");
-                articulo.className = "evento-alerta" + (evento.severidad === "paro" ? " evento-paro" : "");
-                
-                const titulo = document.createElement("strong");
-                titulo.textContent = `${evento.equipo_nombre} — ${nombresSeveridad[evento.severidad] || evento.severidad.toUpperCase()}`;
-                
-                const detalle = document.createElement("p");
-                detalle.textContent = `${evento.variable}: ${evento.valor ?? "--"} ${evento.unidad || ""}. ${evento.mensaje}`;
-                
-                const fecha = document.createElement("small");
-                fecha.textContent = evento.fecha_hora;
-                
-                articulo.append(titulo, detalle, fecha);
-                contenedor.appendChild(articulo);
-            });
-        } catch (error) {
-            console.error("Error actualizando alertas de la línea:", error);
-        }
-    }
-
     async function actualizarConfiguracion() {
         try {
             const respuesta = await fetch("/api/configuracion");
@@ -728,7 +1462,7 @@
     }
 
     // ------------------------------------------------------------
-    // LÓGICA DEL DIAGRAMA DE FLUJO INTERACTIVO (MODAL EXPANDIDO)
+    // DIAGRAMA DE FLUJO INTERACTIVO (CREAR LÍNEA)
     // ------------------------------------------------------------
     async function abrirModalCrearLinea() {
         const respuesta = await fetch("/api/equipos/disponibles");
@@ -747,7 +1481,7 @@
 
         secuenciaDiagrama = [];
         renderizarDiagrama();
-        document.getElementById("nueva-linea-nombre").value = "Línea 1";
+        document.getElementById("nueva-linea-nombre").value = "";
         document.getElementById("modal-linea").style.display = "flex";
     }
 
@@ -804,8 +1538,6 @@
     }
 
     function cerrarModalCrearLinea() { document.getElementById("modal-linea").style.display = "none"; }
-    function abrirModalPersonal() { document.getElementById("modal-personal").style.display = "flex"; }
-    function cerrarModalPersonal() { document.getElementById("modal-personal").style.display = "none"; }
 
     async function guardarNuevaLinea() {
         const nombre = document.getElementById("nueva-linea-nombre").value.trim();
@@ -839,7 +1571,6 @@
             cerrarModalCrearLinea();
             await cargarLineas();
             
-            // Seleccionar automáticamente la línea recién creada
             if (datos.linea_id) {
                 lineaActivaId = datos.linea_id;
                 document.getElementById("selector-linea").value = datos.linea_id;
@@ -851,8 +1582,13 @@
         }
     }
 
+    // ------------------------------------------------------------
+    // AUDITORÍA E INFORMES
+    // ------------------------------------------------------------
     function exportarAuditoriaLinea(formato) {
-        window.location.href = `/exportar/auditoria/${lineaActivaId}/${formato}`;
+        const selectorAud = document.getElementById("selector-linea-auditoria");
+        const idObjetivo = selectorAud ? selectorAud.value : lineaActivaId;
+        window.location.href = `/exportar/auditoria/${idObjetivo}/${formato}`;
     }
 
     async function exportarReporteConsolidado() {
@@ -871,10 +1607,155 @@
         a.click();
     }
 
+    // ------------------------------------------------------------
+    // ADMINISTRACIÓN DE PERSONAL
+    // ------------------------------------------------------------
+    function solicitarConfirmacionAdmin(mensaje, titulo) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById("modal-confirm-admin");
+            document.getElementById("admin-confirm-titulo").textContent = titulo;
+            document.getElementById("admin-confirm-mensaje").textContent = mensaje;
+            modal.style.display = "flex";
+
+            const btnOk = document.getElementById("btn-admin-confirm-aceptar");
+            const btnCancel = document.getElementById("btn-admin-confirm-cancelar");
+
+            const cerrar = () => {
+                modal.style.display = "none";
+                btnOk.onclick = null;
+                btnCancel.onclick = null;
+            };
+
+            btnOk.onclick = () => { cerrar(); resolve(true); };
+            btnCancel.onclick = () => { cerrar(); resolve(false); };
+        });
+    }
+
+    async function cargarPersonal() {
+        const tbody = document.getElementById("tabla-personal-body");
+        if (!tbody) return;
+
+        try {
+            const resp = await fetch("/api/personal");
+            const datos = await resp.json();
+            if (!resp.ok) {
+                tbody.innerHTML = `<tr><td colspan="4">${datos.error || "Error al cargar"}</td></tr>`;
+                return;
+            }
+
+            tbody.replaceChildren();
+            if (!datos.personal.length) {
+                tbody.innerHTML = `<tr><td colspan="4">No hay personal registrado en la empresa.</td></tr>`;
+                return;
+            }
+
+            datos.personal.forEach(emp => {
+                const tr = document.createElement("tr");
+
+                const tdNum = document.createElement("td");
+                tdNum.innerHTML = `<code>${emp.numero_empleado}</code>`;
+
+                const tdNombre = document.createElement("td");
+                tdNombre.style.fontWeight = "600";
+                tdNombre.textContent = emp.nombre;
+
+                const tdRol = document.createElement("td");
+                tdRol.innerHTML = `<span class="role-badge" style="font-size:0.78rem;">${emp.rol}</span>`;
+
+                const tdAcciones = document.createElement("td");
+                tdAcciones.style.textAlign = "right";
+
+                if (emp.id !== datos.usuario_actual_id) {
+                    const btnDel = document.createElement("button");
+                    btnDel.type = "button";
+                    btnDel.textContent = "Eliminar";
+                    btnDel.style.background = "#ef4444";
+                    btnDel.style.color = "#fff";
+                    btnDel.style.border = "none";
+                    btnDel.style.padding = "6px 12px";
+                    btnDel.style.borderRadius = "6px";
+                    btnDel.style.fontWeight = "bold";
+                    btnDel.style.cursor = "pointer";
+                    btnDel.onclick = () => eliminarPersonal(emp.id, emp.nombre);
+                    tdAcciones.appendChild(btnDel);
+                } else {
+                    const tagYo = document.createElement("span");
+                    tagYo.textContent = "Sesión actual";
+                    tagYo.style.fontSize = "0.82rem";
+                    tagYo.style.color = "#64748b";
+                    tdAcciones.appendChild(tagYo);
+                }
+
+                tr.append(tdNum, tdNombre, tdRol, tdAcciones);
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    async function agregarPersonal() {
+        const nombre = document.getElementById("admin-nombre").value.trim();
+        const numero_empleado = document.getElementById("admin-num-empleado").value.trim();
+        const password = document.getElementById("admin-password").value;
+        const rol = document.getElementById("admin-rol").value;
+
+        if (!nombre || !numero_empleado || !password) {
+            mostrarToast("Completa todos los campos del empleado.", "error");
+            return;
+        }
+
+        try {
+            const resp = await fetch("/api/personal", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nombre, numero_empleado, password, rol })
+            });
+            const datos = await resp.json();
+
+            if (!resp.ok) {
+                mostrarToast(datos.error || "No se pudo registrar el empleado.", "error");
+                return;
+            }
+
+            mostrarToast(datos.mensaje, "exito");
+            document.getElementById("admin-nombre").value = "";
+            document.getElementById("admin-num-empleado").value = "";
+            document.getElementById("admin-password").value = "";
+            cargarPersonal();
+        } catch (err) {
+            mostrarToast("Error de conexión con el servidor.", "error");
+        }
+    }
+
+    async function eliminarPersonal(id, nombre) {
+        const confirmado = await solicitarConfirmacionAdmin(
+            `¿Estás seguro de eliminar a ${nombre} del sistema?`,
+            "Eliminar Personal"
+        );
+        if (!confirmado) return;
+
+        try {
+            const resp = await fetch(`/api/personal/${id}`, { method: "DELETE" });
+            const datos = await resp.json();
+            if (!resp.ok) {
+                mostrarToast(datos.error || "No se pudo eliminar al empleado.", "error");
+                return;
+            }
+            mostrarToast(datos.mensaje, "exito");
+            cargarPersonal();
+        } catch (err) {
+            mostrarToast("Error de conexión con el servidor.", "error");
+        }
+    }
+
     async function actualizarDashboard() {
         await actualizarEquipos();
         actualizarConfiguracion();
-        actualizarAlertas();
+        const tabAlertasPanel = document.getElementById("tab-alertas-activo");
+        if (tabAlertasPanel && tabAlertasPanel.classList.contains("active")) {
+            actualizarAlertasActivo();
+        }
     }
 
     cargarLineas();

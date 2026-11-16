@@ -126,41 +126,29 @@ def init_db():
         )
     """)
 
-    # -------------------------------------------------------------------
-    # MIGRACIÓN AUTOMÁTICA DE ESQUEMA PARA BASES DE DATOS PREVIAS
-    # -------------------------------------------------------------------
-    try:
-        cursor.execute("ALTER TABLE lineas ADD COLUMN organizacion_id INTEGER REFERENCES organizaciones(id)")
-    except sqlite3.OperationalError:
-        pass
+    # Migraciones automáticas de columnas previas
+    for stmt in [
+        "ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1",
+        "ALTER TABLE usuarios ADD COLUMN organizacion_id INTEGER REFERENCES organizaciones(id)",
+        "ALTER TABLE lineas ADD COLUMN organizacion_id INTEGER REFERENCES organizaciones(id)",
+        "ALTER TABLE lineas ADD COLUMN descripcion TEXT",
+        "ALTER TABLE lineas ADD COLUMN creado_por TEXT",
+        "ALTER TABLE eventos_alerta ADD COLUMN linea_id INTEGER DEFAULT 1",
+    ]:
+        try:
+            cursor.execute(stmt)
+        except sqlite3.OperationalError:
+            pass
 
-    try:
-        cursor.execute("ALTER TABLE lineas ADD COLUMN descripcion TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE lineas ADD COLUMN creado_por TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE eventos_alerta ADD COLUMN linea_id INTEGER DEFAULT 1")
-    except sqlite3.OperationalError:
-        pass
-
-    # Sembrar roles por defecto
     roles = [("Operador",), ("Tecnico",), ("Supervisor",)]
     for rol in roles:
         cursor.execute("INSERT OR IGNORE INTO roles (nombre) VALUES (?)", rol)
 
-    # Sembrar Organización Demo por defecto
     cursor.execute("INSERT OR IGNORE INTO organizaciones (nombre) VALUES ('Organización Demo')")
     cursor.execute("SELECT id FROM organizaciones WHERE nombre = 'Organización Demo'")
     org_demo_row = cursor.fetchone()
     org_demo_id = org_demo_row["id"] if org_demo_row else None
 
-    # Sembrar usuarios demo por defecto
     usuarios_demo = [
         ("1001", "Operador Demo", "op123", "Operador"),
         ("2001", "Técnico Demo", "tec123", "Tecnico"),
@@ -181,11 +169,14 @@ def init_db():
                 VALUES (?, ?, ?, ?, ?)
             """, (numero, nombre, generate_password_hash(password), rol_id, org_demo_id))
 
-    # Sembrar línea predeterminada si no existe ninguna
+    cursor.execute("UPDATE usuarios SET organizacion_id = ? WHERE organizacion_id IS NULL", (org_demo_id,))
+
     cursor.execute("SELECT COUNT(*) AS total FROM lineas")
     if cursor.fetchone()["total"] == 0:
-        cursor.execute("INSERT INTO lineas (id, organizacion_id, nombre, descripcion) VALUES (1, ?, 'Línea Ensamblado Principal', 'Línea base predeterminada')", (org_demo_id,))
-        
+        cursor.execute(
+            "INSERT INTO lineas (id, organizacion_id, nombre, descripcion) VALUES (1, ?, 'Línea Ensamblado Principal', 'Línea base predeterminada')",
+            (org_demo_id,)
+        )
         activos_default = ["motor", "banda", "compresor", "bomba", "chiller", "reflujo", "inyectora", "cnc"]
         for idx, eq_id in enumerate(activos_default, start=1):
             cursor.execute("INSERT INTO linea_activos (linea_id, equipo_id, orden) VALUES (1, ?, ?)", (eq_id, idx))
@@ -313,7 +304,6 @@ def obtener_estado_linea_completo(linea_id):
 
         instancia_id = f"{f['equipo_id']}_{f['orden']}"
         nombre_instancia = f"{eq_base['nombre']} #{f['orden']}"
-
         variables_copia = [dict(v) for v in eq_base["variables"]]
 
         equipos_linea.append({
@@ -343,6 +333,7 @@ def obtener_estado_linea_completo(linea_id):
 
         variables_salida = []
         variables_dict_influx = {}
+        severidad_max = "normal"
 
         for variable in equipo["variables"]:
             clave_variable = variable["clave"]
@@ -361,6 +352,11 @@ def obtener_estado_linea_completo(linea_id):
                 evaluacion = {"severidad": "normal", "mensaje": "Equipo en paro programado"}
             else:
                 evaluacion = evaluar_valor(valor, regla) if regla else {"severidad": "sin_regla", "mensaje": "Sin umbral"}
+
+            if evaluacion["severidad"] == "paro":
+                severidad_max = "paro"
+            elif evaluacion["severidad"] == "alerta" and severidad_max != "paro":
+                severidad_max = "alerta"
 
             if regla and estado_activo == "Operando":
                 registrar_cambio_alerta(linea_id, equipo, variable, valor, variable["unidad"], evaluacion)
@@ -383,12 +379,16 @@ def obtener_estado_linea_completo(linea_id):
             estado=estado_activo
         )
 
+        salud_map = {"normal": "Óptima", "alerta": "En Advertencia", "paro": "Crítica"}
+
         resultado.append({
             "id": equipo["id"],
             "base_id": equipo["base_id"],
             "nombre": equipo["nombre"],
             "tipo": equipo["tipo"],
             "estado": estado_activo,
+            "severidad_alerta": severidad_max,
+            "salud_individual": salud_map.get(severidad_max, "Normal"),
             "variables": variables_salida
         })
 
@@ -558,7 +558,7 @@ def logout():
     return redirect(url_for("login"))
 
 
-# API REST
+# API REST - LÍNEAS DE TRABAJO Y ACTIVOS
 
 @app.route("/api/lineas", methods=["GET", "POST"])
 def api_lineas():
@@ -569,6 +569,7 @@ def api_lineas():
 
     if request.method == "POST":
         if session.get("rol") != "Supervisor":
+            conn.close()
             return jsonify({"error": "Acceso denegado. Solo el Supervisor tiene permisos para crear líneas de trabajo."}), 403
 
         datos = request.get_json() or {}
@@ -577,6 +578,7 @@ def api_lineas():
         activos_ordenados = datos.get("activos", [])
 
         if not nombre or not activos_ordenados:
+            conn.close()
             return jsonify({"error": "El nombre y al menos un activo son requeridos."}), 400
 
         cursor = conn.cursor()
@@ -601,44 +603,11 @@ def api_lineas():
     return jsonify([dict(l) for l in lineas])
 
 
-@app.route("/api/lineas/<int:linea_id>/personal", methods=["GET", "POST"])
-def api_linea_personal(linea_id):
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    conn = get_db_connection()
-
-    if request.method == "POST":
-        if session.get("rol") != "Supervisor":
-            return jsonify({"error": "Solo el supervisor puede asignar personal."}), 403
-
-        datos = request.get_json() or {}
-        usuario_id = datos.get("usuario_id")
-        rol_asignado = datos.get("rol_asignado", "Operador de Línea")
-
-        conn.execute("""
-            INSERT INTO linea_personal (linea_id, usuario_id, rol_asignado)
-            VALUES (?, ?, ?)
-        """, (linea_id, usuario_id, rol_asignado))
-        conn.commit()
-        conn.close()
-        return jsonify({"mensaje": "Personal asignado a la línea."})
-
-    personal = conn.execute("""
-        SELECT lp.id, u.nombre, u.numero_empleado, lp.rol_asignado, lp.fecha_asignacion
-        FROM linea_personal lp
-        INNER JOIN usuarios u ON lp.usuario_id = u.id
-        WHERE lp.linea_id = ?
-    """, (linea_id,)).fetchall()
-    conn.close()
-    return jsonify([dict(p) for p in personal])
-
-
 @app.route("/api/equipos/disponibles")
 def api_equipos_disponibles():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
-    
+
     return jsonify([
         {"id": e["id"], "nombre": e["nombre"], "tipo": e["tipo"]}
         for e in EQUIPOS
@@ -664,6 +633,9 @@ def cambiar_estado_equipo_linea(linea_id):
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
 
+    if session.get("rol") not in ["Tecnico", "Supervisor"]:
+        return jsonify({"error": "No tienes permisos para realizar esta acción."}), 403
+
     datos = request.get_json() or {}
     equipo_id = datos.get("equipo_id")
     nuevo_estado = datos.get("estado", "Operando")
@@ -672,38 +644,45 @@ def cambiar_estado_equipo_linea(linea_id):
     return jsonify({"mensaje": f"Estado del activo cambiado a {nuevo_estado}."})
 
 
-@app.route("/api/equipos/<equipo_id>/estado", methods=["POST"])
-def cambiar_estado_equipo(equipo_id):
-    if "usuario_id" not in session:
-        return jsonify({"error": "No autorizado"}), 401
-
-    rol = session.get("rol")
-    if rol not in ["Tecnico", "Supervisor"]:
-        return jsonify({"error": "No tienes permisos para realizar esta acción."}), 403
-
-    datos = request.get_json() or {}
-    nuevo_estado = datos.get("estado", "Operando")
-
-    estados_equipos[f"1.{equipo_id}"] = nuevo_estado
-    return jsonify({"mensaje": f"Estado del activo {equipo_id} cambiado a {nuevo_estado}."})
-
-
-@app.route("/api/alertas")
+@app.route("/api/alertas", methods=["GET", "DELETE"])
 def api_alertas():
     if "usuario_id" not in session:
         return jsonify({"error": "No autorizado"}), 401
 
     linea_id = request.args.get("linea_id", type=int, default=1)
+    equipo_id = (request.args.get("equipo_id") or "").strip()
 
     conn = get_db_connection()
-    registros = conn.execute("""
-        SELECT equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora
-        FROM eventos_alerta
-        WHERE linea_id = ?
-        ORDER BY id DESC LIMIT 50
-    """, (linea_id,)).fetchall()
-    conn.close()
 
+    if request.method == "DELETE":
+        if session.get("rol") not in ["Tecnico", "Supervisor"]:
+            conn.close()
+            return jsonify({"error": "No tienes permisos para limpiar el historial."}), 403
+
+        if equipo_id:
+            conn.execute("DELETE FROM eventos_alerta WHERE linea_id = ? AND equipo_id = ?", (linea_id, equipo_id))
+        else:
+            conn.execute("DELETE FROM eventos_alerta WHERE linea_id = ?", (linea_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": "Historial de avisos limpiado correctamente."})
+
+    if equipo_id:
+        registros = conn.execute("""
+            SELECT id, linea_id, equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora
+            FROM eventos_alerta
+            WHERE linea_id = ? AND equipo_id = ?
+            ORDER BY id DESC LIMIT 100
+        """, (linea_id, equipo_id)).fetchall()
+    else:
+        registros = conn.execute("""
+            SELECT id, linea_id, equipo_id, equipo_nombre, variable, valor, unidad, severidad, mensaje, fecha_hora
+            FROM eventos_alerta
+            WHERE linea_id = ?
+            ORDER BY id DESC LIMIT 100
+        """, (linea_id,)).fetchall()
+
+    conn.close()
     return jsonify({"eventos": [dict(r) for r in registros]})
 
 
@@ -754,6 +733,103 @@ def funciones(accion):
         return jsonify({"mensaje": "Paro de emergencia virtual activado."})
 
     return jsonify({"error": "Acción no reconocida."}), 400
+
+
+# API REST - ADMINISTRACIÓN DE PERSONAL
+
+@app.route("/api/personal", methods=["GET", "POST"])
+def api_personal():
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    if session.get("rol") != "Supervisor":
+        return jsonify({"error": "Solo el Supervisor puede administrar el personal."}), 403
+
+    org_id = session.get("organizacion_id")
+    conn = get_db_connection()
+
+    if request.method == "POST":
+        datos = request.get_json() or {}
+        numero_empleado = (datos.get("numero_empleado") or "").strip()
+        nombre = (datos.get("nombre") or "").strip()
+        password = (datos.get("password") or "").strip()
+        rol_nombre = (datos.get("rol") or "").strip()
+
+        if not numero_empleado or not nombre or not password or not rol_nombre:
+            conn.close()
+            return jsonify({"error": "Todos los campos son obligatorios."}), 400
+
+        if len(password) < 4:
+            conn.close()
+            return jsonify({"error": "La contraseña debe tener al menos 4 caracteres."}), 400
+
+        rol_row = conn.execute("SELECT id FROM roles WHERE nombre = ?", (rol_nombre,)).fetchone()
+        if not rol_row:
+            conn.close()
+            return jsonify({"error": "Rol no válido."}), 400
+
+        existente = conn.execute(
+            "SELECT id, activo FROM usuarios WHERE numero_empleado = ?", (numero_empleado,)
+        ).fetchone()
+
+        if existente:
+            if existente["activo"] == 0:
+                conn.execute("""
+                    UPDATE usuarios
+                    SET nombre = ?, password = ?, rol_id = ?, organizacion_id = ?, activo = 1
+                    WHERE id = ?
+                """, (nombre, generate_password_hash(password), rol_row["id"], org_id, existente["id"]))
+                conn.commit()
+                conn.close()
+                return jsonify({"mensaje": f"Personal '{nombre}' reactivado exitosamente."}), 201
+
+            conn.close()
+            return jsonify({"error": "Ya existe un empleado activo con ese número."}), 409
+
+        conn.execute("""
+            INSERT INTO usuarios (numero_empleado, nombre, password, rol_id, organizacion_id, activo)
+            VALUES (?, ?, ?, ?, ?, 1)
+        """, (numero_empleado, nombre, generate_password_hash(password), rol_row["id"], org_id))
+        conn.commit()
+        conn.close()
+        return jsonify({"mensaje": f"Personal '{nombre}' agregado correctamente."}), 201
+
+    personal = conn.execute("""
+        SELECT u.id, u.numero_empleado, u.nombre, r.nombre AS rol
+        FROM usuarios u
+        INNER JOIN roles r ON u.rol_id = r.id
+        WHERE u.activo = 1 AND (u.organizacion_id IS ? OR ? IS NULL)
+        ORDER BY r.id DESC, u.nombre ASC
+    """, (org_id, org_id)).fetchall()
+    conn.close()
+
+    return jsonify({
+        "usuario_actual_id": session.get("usuario_id"),
+        "personal": [dict(p) for p in personal]
+    })
+
+
+@app.route("/api/personal/<int:empleado_id>", methods=["DELETE"])
+def api_eliminar_personal(empleado_id):
+    if "usuario_id" not in session:
+        return jsonify({"error": "No autorizado"}), 401
+
+    if session.get("rol") != "Supervisor":
+        return jsonify({"error": "Solo el Supervisor puede eliminar personal."}), 403
+
+    if empleado_id == session.get("usuario_id"):
+        return jsonify({"error": "No puedes eliminar tu propia cuenta en sesión."}), 400
+
+    conn = get_db_connection()
+    usuario = conn.execute("SELECT id, nombre FROM usuarios WHERE id = ?", (empleado_id,)).fetchone()
+    if not usuario:
+        conn.close()
+        return jsonify({"error": "Empleado no encontrado."}), 404
+
+    conn.execute("UPDATE usuarios SET activo = 0 WHERE id = ?", (empleado_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"mensaje": f"Personal '{usuario['nombre']}' eliminado del sistema."})
 
 
 # RUTAS DE AUDITORÍA Y EXPORTACIÓN DE REPORTES
@@ -875,6 +951,15 @@ def exportar_auditoria_multilinea():
         download_name=f"Reporte_Consolidado_Zonas_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
         mimetype="application/pdf"
     )
+
+
+@app.after_request
+def desactivar_cache_html(response):
+    if "text/html" in response.headers.get("Content-Type", ""):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 
 if __name__ == "__main__":
