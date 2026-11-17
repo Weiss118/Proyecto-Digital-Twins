@@ -73,3 +73,26 @@
     .mant-dia { min-height: 64px; font-size: .7rem; }
     .mant-ev { font-size: .62rem; padding: 1px 3px; }
 }
+
+/* ---- Gemelo 3D del activo ---- */
+.equipo-bloque.dt3d-activo { display: grid; grid-template-columns: minmax(250px, 340px) minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 18px; }
+.equipo-bloque.dt3d-activo > .equipo-titulo { grid-column: 1 / -1; grid-row: 1; }
+.equipo-bloque.dt3d-activo > .dt3d-visor { grid-column: 1; grid-row: 2 / 4; }
+.equipo-bloque.dt3d-activo > .foco-metricas { grid-column: 2; grid-row: 2; }
+.equipo-bloque.dt3d-activo > .cards-grid { grid-column: 2; grid-row: 3; align-self: start; }
+.equipo-bloque.dt3d-activo > :not(.equipo-titulo):not(.dt3d-visor):not(.foco-metricas):not(.cards-grid) { grid-column: 2; }
+.dt3d-visor { position: sticky; top: 66px; align-self: start; margin-top: 14px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%); --dt3d-acento: #2563eb; }
+.dt3d-visor[data-sev="alerta"] { --dt3d-acento: #ca8a04; }
+.dt3d-visor[data-sev="paro"] { --dt3d-acento: #dc2626; }
+.dt3d-lienzo { display: block; width: 100%; aspect-ratio: 1 / .85; cursor: grab; touch-action: pan-y; outline: none; }
+.dt3d-lienzo:active { cursor: grabbing; }
+.dt3d-lienzo:focus-visible { box-shadow: inset 0 0 0 2px rgba(37, 99, 235, .4); }
+.dt3d-pie { position: absolute; left: 10px; right: 10px; bottom: 8px; display: flex; justify-content: space-between; gap: 8px; font-size: .72rem; color: var(--text-muted); pointer-events: none; }
+.dt3d-leyenda { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: #334155; }
+.dt3d-leyenda:not(:empty)::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--dt3d-acento); }
+.equipo-bloque.dt3d-activo .cards-grid > .dashboard-card { cursor: pointer; }
+.equipo-bloque.dt3d-activo .cards-grid > .dashboard-card.dt3d-sel { box-shadow: inset 0 0 0 2px rgba(37, 99, 235, .3); }
+@media (max-width: 860px) {
+    .equipo-bloque.dt3d-activo { display: block; }
+    .dt3d-visor { position: relative; top: 0; max-width: 440px; margin: 14px auto 0; }
+}
