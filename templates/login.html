@@ -35,6 +35,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            gap: 1.5rem;
             overflow: hidden;
             border-right: 1px solid rgba(56, 189, 248, 0.16);
         }
@@ -157,7 +158,8 @@
             flex-direction: column;
             align-items: center;
             text-align: center;
-            padding: 1.5rem 0;
+            gap: 1.5rem;
+            padding: 1rem 0;
         }
 
         .twin-stage {
@@ -166,16 +168,24 @@
             background: rgba(15, 23, 42, 0.68);
             border: 1px solid rgba(59, 130, 246, 0.32);
             border-radius: 18px;
-            padding: 20px 20px 14px 20px;
+            padding: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(8px);
-            margin-bottom: 1.75rem;
+            overflow: hidden;
+        }
+
+        .twin-stage svg {
+            display: block;
+            width: 100%;
+            height: auto;
         }
 
         .twin-stage-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
             font-size: 0.75rem;
             color: #94a3b8;
             padding-bottom: 10px;
@@ -258,37 +268,6 @@
             50% { transform: translateY(62px); opacity: 0.85; }
         }
 
-        .twin-telemetry-bar {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(148, 163, 184, 0.14);
-        }
-
-        .telemetry-chip {
-            background: rgba(30, 41, 59, 0.75);
-            border: 1px solid rgba(148, 163, 184, 0.15);
-            border-radius: 8px;
-            padding: 7px 10px;
-            text-align: left;
-        }
-
-        .telemetry-chip small {
-            display: block;
-            font-size: 0.68rem;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .telemetry-chip strong {
-            font-size: 0.88rem;
-            color: #f8fafc;
-            font-variant-numeric: tabular-nums;
-        }
-
         .showcase-copy h2 {
             font-size: 1.55rem;
             font-weight: 800;
@@ -336,7 +315,7 @@
         }
 
         /* ------------------------------------------------------------
-           COLUMNA DERECHA: PANEL DE ACCESO
+           COLUMNA DERECHA: PANEL DE FORMULARIO
            ------------------------------------------------------------ */
         .login-side-panel {
             background: #f1f5f9;
@@ -344,15 +323,15 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 2rem 2.25rem;
+            padding: 1.75rem 2.25rem;
             min-height: 100vh;
         }
 
         .login-card {
             background: #ffffff;
             width: 100%;
-            max-width: 410px;
-            padding: 2.25rem;
+            max-width: 415px;
+            padding: 2.15rem 2.25rem;
             border-radius: 14px;
             border: 1px solid #e2e8f0;
             box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.12);
@@ -377,7 +356,7 @@
         }
 
         .login-header {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.4rem;
         }
 
         .login-header h2 {
@@ -537,29 +516,11 @@
                         <rect x="403" y="56" width="44" height="18" rx="9" fill="rgba(16, 185, 129, 0.22)" stroke="#10b981" stroke-width="1.3"/>
                         <text x="425" y="68" fill="#a7f3d0" font-size="9" font-weight="800" text-anchor="middle">SYNC OK</text>
                     </svg>
-
-                    <div class="twin-telemetry-bar">
-                        <div class="telemetry-chip">
-                            <small>Muestreo</small>
-                            <strong>2.0 s · Tiempo Real</strong>
-                        </div>
-                        <div class="telemetry-chip">
-                            <small>Modelado 3D</small>
-                            <strong>8 Activos Industriales</strong>
-                        </div>
-                        <div class="telemetry-chip">
-                            <small>Integridad</small>
-                            <strong style="color: #6ee7b7;">100% Sincronizado</strong>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="showcase-copy">
                     <h2>Ecosistema de Gemelo Digital en Tiempo Real</h2>
-                    <p>
-                        Supervisa el flujo continuo de tus líneas de producción, inspecciona alertas por activo,
-                        calibra umbrales de medición y audita el rendimiento operativo desde cualquier dispositivo.
-                    </p>
+                    <p>Supervisa el flujo continuo de tus líneas de producción, inspecciona alertas por activo, calibra umbrales de medición y audita el rendimiento operativo desde cualquier dispositivo.</p>
                 </div>
             </div>
 
@@ -609,7 +570,7 @@
                         <label for="password">Contraseña</label>
                         <div class="password-input-wrap">
                             <input type="password" id="password" name="password" required placeholder="••••••••" autocomplete="current-password">
-                            <button type="button" class="btn-toggle-pwd" onclick="togglePasswordVisibility(this)" aria-label="Mostrar u ocultar contraseña">
+                            <button type="button" class="btn-toggle-pwd" onclick="togglePasswordVisibility(this, 'password')" aria-label="Mostrar u ocultar contraseña">
                                 Mostrar
                             </button>
                         </div>
@@ -642,8 +603,8 @@
     </div>
 
     <script>
-        function togglePasswordVisibility(btn) {
-            const input = document.getElementById("password");
+        function togglePasswordVisibility(btn, inputId) {
+            const input = document.getElementById(inputId || "password");
             if (!input) return;
             const esPassword = input.type === "password";
             input.type = esPassword ? "text" : "password";
