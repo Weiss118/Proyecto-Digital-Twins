@@ -1,8 +1,7 @@
 /* Selector de métricas por activo.
  *
  * Añade, sobre las tarjetas de cada activo, un selector para elegir qué
- * métricas ver y concentrarse en ellas. No modifica el código existente del
- * dashboard: observa #equipos y oculta/muestra tarjetas ya renderizadas.
+ * métricas ver y concentrarse en ellas.
  *
  * Para que, al elegir un activo, NO se muestre ninguna métrica hasta que el
  * usuario elija (en lugar de mostrar todas), cambia la constante siguiente a false.
@@ -126,12 +125,15 @@
     }
 
     function procesar() {
-        contenedor.querySelectorAll(".equipo-bloque").forEach(aplicar);
+        document.querySelectorAll(".equipo-bloque").forEach(aplicar);
     }
 
-    // Se redibuja el bloque cuando cambia el activo seleccionado.
+    // Se redibuja el bloque cuando cambia el activo seleccionado en la línea o en el modal.
     new MutationObserver(procesar).observe(contenedor, { childList: true });
-    // Mantiene al día los indicadores de severidad de cada opción (los valores cambian cada 2 s).
+    var modalContenedor = document.getElementById("inspeccion-detalle-contenedor");
+    if (modalContenedor) {
+        new MutationObserver(procesar).observe(modalContenedor, { childList: true });
+    }
     setInterval(procesar, 2000);
     procesar();
 })();

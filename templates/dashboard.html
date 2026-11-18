@@ -666,7 +666,8 @@
         <!-- Secuencia Operativa de Activos de la Línea -->
         <section class="dashboard-section">
             <h2>Secuencia Operativa de la Línea</h2>
-            <div id="equipos" class="equipos-lista">
+            <p class="dashboard-subtitle" style="margin-top:-6px;">Haz clic sobre cualquier activo para abrir su visor 3D ampliado, parámetros en tiempo real y controles.</p>
+            <div id="equipos" class="equipos-secuencia">
                 Cargando activos de la línea de trabajo...
             </div>
         </section>
@@ -929,6 +930,57 @@
             <button type="button" id="btn-admin-confirm-aceptar" class="btn-primary" style="background: #ef4444; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-weight: bold; font-size: 0.9rem;">
                 Confirmar
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Inspección Detallada de Activo (3D fijo a la izquierda + parámetros en tiempo real a la derecha) -->
+<div id="modal-inspeccion-activo" class="modal" onclick="if(event.target === this) cerrarModalInspeccionActivo()">
+    <div class="modal-inspeccion-contenido" role="dialog" aria-modal="true" aria-labelledby="inspeccion-titulo">
+        <div class="inspeccion-header">
+            <div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <h2 id="inspeccion-titulo" style="margin:0; font-size:1.35rem; color:#0f172a;">Activo</h2>
+                    <span id="inspeccion-badge-estado" class="activo-seq-estado-pill">Operando</span>
+                    <span id="inspeccion-badge-alerta" class="equipo-estado-alerta badge-normal">Normal</span>
+                </div>
+                <p id="inspeccion-subtitulo" class="dashboard-subtitle" style="margin:4px 0 0 0;">Tipo de activo</p>
+            </div>
+
+            <button type="button" onclick="cerrarModalInspeccionActivo()" aria-label="Cerrar ventana"
+                style="border:1px solid #cbd5e1; background:#ffffff; color:#0f172a; border-radius:8px; width:38px; height:38px; font-size:1.3rem; font-weight:bold; cursor:pointer;">
+                ×
+            </button>
+        </div>
+
+        <div class="inspeccion-body">
+            <!-- Columna izquierda: Modelo 3D grande (fijo, sin scroll) + controles -->
+            <div class="inspeccion-col-3d">
+                <div id="inspeccion-visor-3d"></div>
+
+                <div class="inspeccion-acciones-grid">
+                    <button type="button" id="inspeccion-btn-alertas" class="btn-activo-accion btn-ver-alertas">
+                        🔔 Ver alertas
+                    </button>
+
+                    {% if rol in roles_umbrales %}
+                    <button type="button" id="inspeccion-btn-umbrales" class="btn-activo-accion btn-editar-umbrales">
+                        ⚙ Modificar parámetros
+                    </button>
+                    {% endif %}
+
+                    {% if rol == "Tecnico" or rol == "Supervisor" %}
+                    <button type="button" id="inspeccion-btn-control" class="btn-activo-accion" style="border:none;">
+                        Detener activo
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Columna derecha: Parámetros en tiempo real con scroll propio -->
+            <div class="inspeccion-col-parametros">
+                <div id="inspeccion-detalle-contenedor"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -1213,8 +1265,19 @@
     }
 
     // ------------------------------------------------------------
-    // GESTIÓN DE ACTIVOS EN GEMELO DIGITAL
+    // GESTIÓN DE ACTIVOS EN SECUENCIA DE LÍNEA Y MODAL 3D
     // ------------------------------------------------------------
+    let visoresSecuencia = {};          // visores 3D en las tarjetas de la línea
+    let equipoInspeccionId = null;      // ID del activo abierto actualmente en el modal
+    let visorModal3D = null;            // instancia DT3D grande del modal
+    let variableModalMarcada = null;    // clave de variable seleccionada en el modal
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && equipoInspeccionId) {
+            cerrarModalInspeccionActivo();
+        }
+    });
+
     async function cambiarEstadoActivo(equipoId, nuevoEstado) {
         try {
             const respuesta = await fetch(`/api/lineas/${lineaActivaId}/estado-equipo`, {
@@ -1253,129 +1316,229 @@
         return tarjeta;
     }
 
-    function crearBloqueEquipo(equipo) {
-        const bloque = document.createElement("div");
-        bloque.className = "equipo-bloque";
-        bloque.id = "equipo-" + equipo.id;
+    function crearTarjetaSecuencia(equipo, ordenNumero) {
+        const card = document.createElement("div");
+        card.className = "activo-seq-card estado-normal";
+        card.id = "seq-card-" + equipo.id;
+        card.onclick = () => abrirModalInspeccionActivo(equipo.id);
 
-        const titulo = document.createElement("div");
-        titulo.className = "equipo-titulo";
+        // Cabecera: orden + nombre + badge de salud
+        const header = document.createElement("div");
+        header.className = "activo-seq-header";
 
-        const nombre = document.createElement("h3");
-        nombre.textContent = equipo.nombre;
+        const infoIzq = document.createElement("div");
+        const titulo = document.createElement("h3");
+        titulo.className = "activo-seq-titulo";
+        titulo.innerHTML = `<span class="activo-seq-orden">#${ordenNumero}</span>${equipo.nombre}`;
 
         const tipo = document.createElement("p");
-        tipo.className = "equipo-tipo";
+        tipo.className = "activo-seq-tipo";
         tipo.textContent = equipo.tipo;
+        infoIzq.append(titulo, tipo);
 
         const insignia = document.createElement("span");
         insignia.className = "equipo-estado-alerta badge-normal";
-        insignia.id = "alerta-equipo-" + equipo.id;
+        insignia.id = "seq-alerta-" + equipo.id;
         insignia.textContent = "Normal";
 
-        titulo.append(nombre, tipo, insignia);
+        header.append(infoIzq, insignia);
 
-        const contenedorAcciones = document.createElement("div");
-        contenedorAcciones.className = "activo-acciones-barra";
+        // Vista previa 3D del activo en la secuencia
+        const visorCont = document.createElement("div");
+        visorCont.id = "seq-visor-" + equipo.id;
 
-        // Botón para abrir la pestaña de alertas de este activo en esta línea
-        const btnAlertas = document.createElement("button");
-        btnAlertas.type = "button";
-        btnAlertas.id = "btn-alertas-" + equipo.id;
-        btnAlertas.className = "btn-activo-accion btn-ver-alertas";
-        btnAlertas.textContent = "🔔 Alertas";
-        btnAlertas.onclick = () => abrirPestanaAlertasActivo(equipo);
-        contenedorAcciones.appendChild(btnAlertas);
+        // Pie de tarjeta: estado operativo + acción
+        const footer = document.createElement("div");
+        footer.className = "activo-seq-footer";
 
-        // Botón para abrir la pestaña de modificación de umbrales de este activo
-        if (document.getElementById("sec-umbrales")) {
-            const btnUmbral = document.createElement("button");
-            btnUmbral.type = "button";
-            btnUmbral.className = "btn-activo-accion btn-editar-umbrales";
-            btnUmbral.textContent = "⚙ Umbrales";
-            btnUmbral.onclick = () => abrirPestanaUmbralesActivo(equipo);
-            contenedorAcciones.appendChild(btnUmbral);
+        const estadoPill = document.createElement("span");
+        estadoPill.className = "activo-seq-estado-pill operando";
+        estadoPill.id = "seq-estado-" + equipo.id;
+        estadoPill.textContent = equipo.estado;
+
+        const enlace = document.createElement("span");
+        enlace.style.color = "#2563eb";
+        enlace.style.fontWeight = "700";
+        enlace.textContent = "Inspeccionar →";
+
+        footer.append(estadoPill, enlace);
+        card.append(header, visorCont, footer);
+        return card;
+    }
+
+    function actualizarTarjetaSecuencia(equipo) {
+        const sev = equipo.severidad_alerta || "normal";
+        const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
+
+        const card = document.getElementById("seq-card-" + equipo.id);
+        if (card) {
+            card.classList.remove("estado-normal", "estado-alerta", "estado-paro");
+            card.classList.add("estado-" + sev);
         }
 
-        // Botón de encendido / apagado individual del activo
-        if (ROL_USUARIO === "Tecnico" || ROL_USUARIO === "Supervisor") {
-            const btnEstado = document.createElement("button");
-            btnEstado.type = "button";
-            btnEstado.id = "btn-control-" + equipo.id;
-            btnEstado.className = "btn-activo-accion";
-            btnEstado.style.border = "none";
-            contenedorAcciones.appendChild(btnEstado);
+        const insignia = document.getElementById("seq-alerta-" + equipo.id);
+        if (insignia) {
+            insignia.className = "equipo-estado-alerta badge-" + sev;
+            insignia.textContent = nombres[sev] || "Normal";
         }
 
-        titulo.appendChild(contenedorAcciones);
-        bloque.appendChild(titulo);
+        const estadoPill = document.getElementById("seq-estado-" + equipo.id);
+        if (estadoPill) {
+            estadoPill.textContent = equipo.estado;
+            estadoPill.className = "activo-seq-estado-pill " + (equipo.estado || "").toLowerCase();
+        }
+
+        if (visoresSecuencia[equipo.id]) {
+            visoresSecuencia[equipo.id].actualizarSeveridadGlobal(sev);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // MODAL DE INSPECCIÓN EN TIEMPO REAL DEL ACTIVO SELECCIONADO
+    // ------------------------------------------------------------
+    function abrirModalInspeccionActivo(equipoId) {
+        const equipo = equiposDatos.find(e => e.id === equipoId);
+        if (!equipo) return;
+
+        equipoInspeccionId = equipoId;
+        variableModalMarcada = null;
+
+        document.getElementById("inspeccion-titulo").textContent = equipo.nombre;
+        document.getElementById("inspeccion-subtitulo").textContent = `${equipo.tipo} · Línea: ${obtenerNombreLineaActual()}`;
+
+        // Montar visor 3D grande en columna izquierda fija
+        const contVisor = document.getElementById("inspeccion-visor-3d");
+        visorModal3D = window.DT3D
+            ? window.DT3D.montarVisor(contVisor, equipo.base_id, { nombre: equipo.nombre, grande: true, severidad: equipo.severidad_alerta })
+            : null;
+
+        // Construir bloque de tarjetas de parámetros en columna derecha
+        const contDetalle = document.getElementById("inspeccion-detalle-contenedor");
+        contDetalle.replaceChildren();
+
+        const bloque = document.createElement("div");
+        bloque.className = "equipo-bloque";
+        bloque.id = "equipo-" + equipo.id;
+        bloque.style.margin = "0";
+        bloque.style.border = "none";
+        bloque.style.padding = "0";
+        bloque.style.background = "transparent";
+        bloque.style.boxShadow = "none";
 
         const grid = document.createElement("div");
         grid.className = "cards-grid";
+        grid.style.marginTop = "12px";
 
-        grid.appendChild(crearRecuadro("Estado", "estado-" + equipo.id, false));
+        grid.appendChild(crearRecuadro("Estado operativo", "modal-estado-" + equipo.id, false));
 
-        equipo.variables.forEach(function(variable, indice) {
-            grid.appendChild(
-                crearRecuadro(
-                    variable.etiqueta,
-                    "var-" + equipo.id + "-" + indice,
-                    variable.unidad === ""
-                )
+        equipo.variables.forEach(function (variable, indice) {
+            const tarjeta = crearRecuadro(
+                variable.etiqueta,
+                "var-" + equipo.id + "-" + indice,
+                variable.unidad === ""
             );
+            tarjeta.onclick = () => {
+                const yaMarcada = (variableModalMarcada === variable.clave);
+                bloque.querySelectorAll(".dashboard-card.dt3d-sel").forEach(c => c.classList.remove("dt3d-sel"));
+
+                if (yaMarcada) {
+                    variableModalMarcada = null;
+                    if (visorModal3D) visorModal3D.marcarClave(null);
+                } else {
+                    variableModalMarcada = variable.clave;
+                    tarjeta.classList.add("dt3d-sel");
+                    const eqLive = equiposDatos.find(e => e.id === equipo.id) || equipo;
+                    const varLive = eqLive.variables[indice] || variable;
+                    if (visorModal3D) {
+                        visorModal3D.marcarClave(variable.clave, variable.etiqueta, varLive.severidad, tarjeta);
+                    }
+                }
+            };
+            grid.appendChild(tarjeta);
         });
 
         bloque.appendChild(grid);
-        return bloque;
+        contDetalle.appendChild(bloque);
+
+        document.getElementById("modal-inspeccion-activo").style.display = "flex";
+        actualizarModalInspeccionActivo(equipo);
     }
 
-    function pintarValores(equipo) {
-        const estado = document.getElementById("estado-" + equipo.id);
-        if (estado) {
-            estado.textContent = equipo.estado;
+    function cerrarModalInspeccionActivo() {
+        equipoInspeccionId = null;
+        visorModal3D = null;
+        variableModalMarcada = null;
+        document.getElementById("modal-inspeccion-activo").style.display = "none";
+    }
+
+    function actualizarModalInspeccionActivo(equipo) {
+        if (!equipo || equipoInspeccionId !== equipo.id) return;
+
+        const sev = equipo.severidad_alerta || "normal";
+        const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
+
+        const badgeAlerta = document.getElementById("inspeccion-badge-alerta");
+        if (badgeAlerta) {
+            badgeAlerta.className = "equipo-estado-alerta badge-" + sev;
+            badgeAlerta.textContent = nombres[sev] || "Normal";
         }
 
-        const btnControl = document.getElementById("btn-control-" + equipo.id);
+        const badgeEstado = document.getElementById("inspeccion-badge-estado");
+        if (badgeEstado) {
+            badgeEstado.textContent = equipo.estado;
+            badgeEstado.className = "activo-seq-estado-pill " + (equipo.estado || "").toLowerCase();
+        }
+
+        const celdaEstado = document.getElementById("modal-estado-" + equipo.id);
+        if (celdaEstado) celdaEstado.textContent = equipo.estado;
+
+        // Botón Ver Alertas
+        const btnAlertas = document.getElementById("inspeccion-btn-alertas");
+        if (btnAlertas) {
+            const anomalias = (equipo.variables || []).filter(v => v.severidad === "alerta" || v.severidad === "paro");
+            btnAlertas.classList.remove("tiene-alerta", "tiene-paro");
+            if (anomalias.some(v => v.severidad === "paro")) {
+                btnAlertas.classList.add("tiene-paro");
+                btnAlertas.textContent = `🔔 Ver alertas (${anomalias.length})`;
+            } else if (anomalias.length > 0) {
+                btnAlertas.classList.add("tiene-alerta");
+                btnAlertas.textContent = `🔔 Ver alertas (${anomalias.length})`;
+            } else {
+                btnAlertas.textContent = "🔔 Ver alertas";
+            }
+            btnAlertas.onclick = () => {
+                cerrarModalInspeccionActivo();
+                abrirPestanaAlertasActivo(equipo);
+            };
+        }
+
+        // Botón Modificar Parámetros (Umbrales)
+        const btnUmbrales = document.getElementById("inspeccion-btn-umbrales");
+        if (btnUmbrales) {
+            btnUmbrales.onclick = () => {
+                cerrarModalInspeccionActivo();
+                abrirPestanaUmbralesActivo(equipo);
+            };
+        }
+
+        // Botón Detener / Encender Activo
+        const btnControl = document.getElementById("inspeccion-btn-control");
         if (btnControl) {
             if (equipo.estado === "Operando") {
-                btnControl.textContent = "Detener activo";
+                btnControl.textContent = "⏹ Detener activo";
                 btnControl.style.backgroundColor = "#ef4444";
                 btnControl.style.color = "#ffffff";
                 btnControl.onclick = () => cambiarEstadoActivo(equipo.id, "Detenido");
             } else {
-                btnControl.textContent = "Encender activo";
+                btnControl.textContent = "▶ Encender activo";
                 btnControl.style.backgroundColor = "#10b981";
                 btnControl.style.color = "#ffffff";
                 btnControl.onclick = () => cambiarEstadoActivo(equipo.id, "Operando");
             }
         }
 
-        const insignia = document.getElementById("alerta-equipo-" + equipo.id);
-        if (insignia) {
-            const sev = equipo.severidad_alerta || "normal";
-            const nombres = { normal: "Normal", alerta: "Alerta", paro: "Crítico" };
-            insignia.className = "equipo-estado-alerta badge-" + sev;
-            insignia.textContent = nombres[sev] || "Sin datos";
-        }
-
-        // Actualizar indicador discreto en el botón de Alertas del activo
-        const btnAlertas = document.getElementById("btn-alertas-" + equipo.id);
-        if (btnAlertas) {
-            const anomalias = (equipo.variables || []).filter(v => v.severidad === "alerta" || v.severidad === "paro");
-            btnAlertas.classList.remove("tiene-alerta", "tiene-paro");
-            if (anomalias.some(v => v.severidad === "paro")) {
-                btnAlertas.classList.add("tiene-paro");
-                btnAlertas.textContent = `🔔 Alertas (${anomalias.length})`;
-            } else if (anomalias.length > 0) {
-                btnAlertas.classList.add("tiene-alerta");
-                btnAlertas.textContent = `🔔 Alertas (${anomalias.length})`;
-            } else {
-                btnAlertas.textContent = "🔔 Alertas";
-            }
-            btnAlertas.onclick = () => abrirPestanaAlertasActivo(equipo);
-        }
-
-        equipo.variables.forEach(function(variable, indice) {
+        // Actualizar valores en tiempo real de cada variable
+        equipo.variables.forEach(function (variable, indice) {
             const celda = document.getElementById("var-" + equipo.id + "-" + indice);
             if (!celda) return;
 
@@ -1411,16 +1574,44 @@
             equiposDatos = await respuesta.json();
             const contenedor = document.getElementById("equipos");
 
-            const vista = equiposDatos.map(e => e.id).join("|");
+            const vista = `${lineaActivaId}:` + equiposDatos.map(e => e.id).join("|");
             if (contenedor.dataset.vista !== vista) {
                 contenedor.replaceChildren();
-                equiposDatos.forEach(function(equipo) {
-                    contenedor.appendChild(crearBloqueEquipo(equipo));
+                visoresSecuencia = {};
+
+                equiposDatos.forEach(function (equipo, idx) {
+                    contenedor.appendChild(crearTarjetaSecuencia(equipo, idx + 1));
+
+                    const contVisor = document.getElementById("seq-visor-" + equipo.id);
+                    if (window.DT3D && contVisor) {
+                        visoresSecuencia[equipo.id] = window.DT3D.montarVisor(
+                            contVisor,
+                            equipo.base_id,
+                            { nombre: equipo.nombre, grande: false, severidad: equipo.severidad_alerta }
+                        );
+                    }
+
+                    if (idx < equiposDatos.length - 1) {
+                        const flecha = document.createElement("div");
+                        flecha.className = "activo-seq-conector";
+                        flecha.textContent = "➔";
+                        contenedor.appendChild(flecha);
+                    }
                 });
+
                 contenedor.dataset.vista = vista;
             }
 
-            equiposDatos.forEach(pintarValores);
+            equiposDatos.forEach(actualizarTarjetaSecuencia);
+
+            if (equipoInspeccionId) {
+                const eqModal = equiposDatos.find(e => e.id === equipoInspeccionId);
+                if (eqModal) {
+                    actualizarModalInspeccionActivo(eqModal);
+                } else {
+                    cerrarModalInspeccionActivo();
+                }
+            }
         } catch (error) {
             console.error("Error obteniendo equipos de la línea:", error);
         }

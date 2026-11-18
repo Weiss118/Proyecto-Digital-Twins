@@ -1,18 +1,9 @@
 /* Gemelo 3D del activo.
  *
- * Dibuja, a la izquierda de las métricas de cada activo, una representación
- * tridimensional ligera (canvas 2D, sin librerías externas). Se puede girar
- * arrastrando. Al tocar una métrica (su tarjeta o su opción del selector
- * «Métricas a mostrar») la parte del activo que la origina se marca de forma
- * sutil, con el color de su severidad actual (normal / alerta / crítico).
- *
- * No modifica el código existente del dashboard: observa #equipos igual que
- * metricas_foco.js y se apoya en window.DT (dt_util.js).
- *
- * Para añadir o ajustar un activo, edita su entrada en MODELOS (más abajo).
- * El id es el de equipos.py. En «marcas», cada clave de variable de equipos.py
- * indica qué partes del modelo se marcan ("*" = todo el activo). Los activos
- * sin modelo se muestran igual que antes, sin visor.
+ * Dibuja, en las tarjetas de secuencia y en el modal de inspección, una
+ * representación tridimensional ligera (canvas 2D, sin librerías externas).
+ * Se puede girar arrastrando. Al tocar una métrica, la parte del activo que la
+ * origina se marca con el color de su severidad actual (normal / alerta / crítico).
  */
 (function () {
     "use strict";
@@ -87,7 +78,6 @@
     };
 
     // Cilindro (o tronco de cono) centrado en (x, y, z) con su eje en "x", "y" o "z".
-    // r = radio en el extremo negativo del eje, o.r2 = radio en el extremo positivo.
     Malla.prototype.C = function (parte, eje, x, y, z, r, L, color, o) {
         o = o || {};
         this.celda = o.celda || 0;
@@ -115,13 +105,11 @@
             tapaInf.push(pt(-L / 2, c0, s0, r));
         }
 
-        // Tapas: anillos concéntricos (o un solo polígono si son pequeñas). Con o.hueco solo se
-        // dibuja la corona exterior, útil para aletas finas.
         var tapaClara = lerp3(color, [255, 255, 255], 0.06);
         var hueco = o.hueco || 0;
         var tapas = [[L / 2, r2, eje1], [-L / 2, r, [-eje1[0], -eje1[1], -eje1[2]]]];
         for (var k = 0; k < tapas.length; k++) {
-            if (eje === "y" && k === 1) continue;                  // la base de un cilindro vertical no se ve
+            if (eje === "y" && k === 1) continue;
             var tt = tapas[k][0], rad = tapas[k][1], nrm = tapas[k][2];
             if (rad < 0.02) continue;
             if (rad < 0.3 && !hueco) {
@@ -334,7 +322,6 @@
         }
     };
 
-    // Los modelos se construyen una sola vez y se comparten entre bloques.
     var cacheModelos = {};
     function obtenerModelo(id) {
         if (cacheModelos[id] !== undefined) return cacheModelos[id];
@@ -381,7 +368,7 @@
             Math.max(0, Math.min(255, Math.round(c[2]))) + ")";
     }
 
-    var LUZ = (function () {            // luz fija respecto a la cámara: arriba, a la izquierda y de frente
+    var LUZ = (function () {
         var v = [-0.45, 0.8, 0.55], l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         return [v[0] / l, v[1] / l, v[2] / l];
     })();
@@ -396,7 +383,6 @@
         var F = D * Math.min(W * 0.96, H * 1.2) * 0.5 / modelo.radio;
         var ox = W / 2, oy = H * 0.47;
 
-        // Transformación: giro en Y (yaw), inclinación en X (pitch) y proyección en perspectiva.
         function rot(p) {
             var x1 = p[0] * cy + p[2] * sy, z1 = -p[0] * sy + p[2] * cy;
             return [x1, p[1] * cp - z1 * sp, p[1] * sp + z1 * cp];
@@ -444,7 +430,7 @@
                 q.push(r); cx += r[0]; cyy += r[1]; cz += r[2];
             }
             cx /= vs.length; cyy /= vs.length; cz /= vs.length;
-            if (n[0] * (0 - cx) + n[1] * (0 - cyy) + n[2] * (D - cz) <= 0) continue;     // cara de espaldas
+            if (n[0] * (0 - cx) + n[1] * (0 - cyy) + n[2] * (D - cz) <= 0) continue;
 
             var luz = Math.max(0, n[0] * LUZ[0] + n[1] * LUZ[1] + n[2] * LUZ[2]);
             var s = 0.58 + 0.5 * luz;
@@ -495,7 +481,7 @@
     }
 
     /* ===================================================================
-       Bucle de animación (solo trabaja mientras hay algo visible que animar)
+       Bucle de animación
        =================================================================== */
     var instancias = [];
     var corriendo = false, ultimo = 0;
@@ -548,114 +534,34 @@
     }
 
     /* ===================================================================
-       Integración con el dashboard
+       API pública window.DT3D (usada por secuencia de línea y modal grande)
        =================================================================== */
-    var marcado = {};                      // marcado[equipoId] = índice de la métrica marcada (o ausente)
+    function montarVisor(contenedorVisor, baseId, opciones) {
+        opciones = opciones || {};
+        var modelo = obtenerModelo(baseId);
+        if (!contenedorVisor || !modelo) return null;
 
-    function idEquipo(bloque) { return bloque.id.replace(/^equipo-/, ""); }
-    function idBase(id) { return id.replace(/_\d+$/, ""); }
-
-    function claveDe(equipoId, indice) {
-        try {
-            if (typeof equiposDatos === "undefined") return null;      // lista global del dashboard
-            for (var i = 0; i < equiposDatos.length; i++) {
-                if (equiposDatos[i].id === equipoId) {
-                    var v = equiposDatos[i].variables[indice];
-                    return v ? v.clave : null;
-                }
-            }
-        } catch (e) { }
-        return null;
-    }
-
-    function tarjetaDe(bloque, indice) {
-        var valor = bloque.querySelector("#var-" + idEquipo(bloque) + "-" + indice);
-        return valor ? valor.closest(".dashboard-card") : null;
-    }
-
-    function instanciaDe(bloque) {
-        for (var i = 0; i < instancias.length; i++) if (instancias[i].bloque === bloque) return instancias[i];
-        return null;
-    }
-
-    // Aplica (o quita) la marca de la métrica `indice` sobre el visor del bloque.
-    function marcar(bloque, indice) {
-        var inst = instanciaDe(bloque);
-        if (!inst) return;
-        var equipoId = idEquipo(bloque);
-
-        bloque.querySelectorAll(".dashboard-card.dt3d-sel").forEach(function (t) {
-            t.classList.remove("dt3d-sel");
-            t.removeAttribute("aria-pressed");
-        });
-
-        if (indice === null || indice === undefined) {
-            delete marcado[equipoId];
-            inst.partes = null; inst.centroMarca = null; inst.tarjeta = null;
-            inst.visor.querySelector(".dt3d-leyenda").textContent = "";
-            inst.severidad = "normal"; inst.visor.dataset.sev = "normal";
-            inst.sucio = true; pedir();
-            return;
-        }
-
-        marcado[equipoId] = indice;
-        var tarjeta = tarjetaDe(bloque, indice);
-        if (tarjeta) { tarjeta.classList.add("dt3d-sel"); tarjeta.setAttribute("aria-pressed", "true"); }
-
-        var clave = claveDe(equipoId, indice);
-        var def = clave && inst.modelo.marcas[clave] ? inst.modelo.marcas[clave] : "*";
-        var caja = null;
-        if (def === "*") {
-            inst.partes = "*";
-        } else {
-            inst.partes = {};
-            def.forEach(function (p) {
-                inst.partes[p] = true;
-                var c = inst.modelo.cajas[p];
-                if (!c) return;
-                caja = caja || { min: c.min.slice(), max: c.max.slice() };
-                for (var k = 0; k < 3; k++) {
-                    caja.min[k] = Math.min(caja.min[k], c.min[k]);
-                    caja.max[k] = Math.max(caja.max[k], c.max[k]);
-                }
-            });
-        }
-        inst.centroMarca = caja
-            ? [(caja.min[0] + caja.max[0]) / 2, (caja.min[1] + caja.max[1]) / 2, (caja.min[2] + caja.max[2]) / 2]
-            : [0, 0, 0];
-
-        inst.tarjeta = tarjeta;
-        inst.severidad = severidadDe(tarjeta);
-        inst.visor.dataset.sev = inst.severidad;
-        var h3 = tarjeta ? tarjeta.querySelector("h3") : null;
-        inst.visor.querySelector(".dt3d-leyenda").textContent = h3 ? h3.textContent : "";
-        inst.sucio = true; pedir();
-    }
-
-    function montar(bloque) {
-        if (bloque.dataset.dt3d) return;
-        var equipoId = idEquipo(bloque);
-        var modelo = obtenerModelo(idBase(equipoId));
-        var titulo = bloque.querySelector(".equipo-titulo");
-        bloque.dataset.dt3d = modelo && titulo ? "1" : "0";
-        if (!modelo || !titulo) return;
-
-        var nombre = (titulo.querySelector("h3") || {}).textContent || "activo";
+        contenedorVisor.replaceChildren();
         var lienzo = el("canvas", {
             class: "dt3d-lienzo", tabindex: "0", role: "img",
-            "aria-label": "Representación 3D: " + nombre + ". Arrastra o usa las flechas para girar."
+            "aria-label": "Representación 3D: " + (opciones.nombre || baseId) + ". Arrastra o usa las flechas para girar."
         });
         var leyenda = el("span", { class: "dt3d-leyenda", "aria-live": "polite" });
-        var pie = el("div", { class: "dt3d-pie" }, [leyenda, el("span", { text: "Arrastra para girar" })]);
-        var visor = el("div", { class: "dt3d-visor" }, [lienzo, pie]);
-        visor.dataset.sev = "normal";
-        titulo.parentNode.insertBefore(visor, titulo.nextSibling);
-        bloque.classList.add("dt3d-activo");
+        var pie = el("div", { class: "dt3d-pie" }, [
+            leyenda,
+            el("span", { text: opciones.grande ? "Arrastra o usa flechas para girar" : "Arrastra para girar" })
+        ]);
+        var visor = el("div", {
+            class: "dt3d-visor" + (opciones.grande ? " dt3d-visor-grande" : "")
+        }, [lienzo, pie]);
+        visor.dataset.sev = opciones.severidad || "normal";
+        contenedorVisor.appendChild(visor);
 
         var inst = {
-            bloque: bloque, visor: visor, canvas: lienzo, ctx: lienzo.getContext("2d"), modelo: modelo,
+            visor: visor, canvas: lienzo, ctx: lienzo.getContext("2d"), modelo: modelo,
             ancho: 0, alto: 0, dpr: 1, yaw: -0.55, pitch: 0.38, fase: 0,
-            partes: null, centroMarca: null, tarjeta: null, severidad: "normal",
+            partes: null, centroMarca: null, tarjeta: null,
+            severidad: opciones.severidad || "normal",
             pausado: false, arrastrando: false, visible: true, sucio: true
         };
         instancias.push(inst);
@@ -685,14 +591,14 @@
             inst.io.observe(lienzo);
         }
 
-        // Girar con el puntero (el scroll vertical táctil sigue funcionando).
-        var ultimoX = 0, ultimoY = 0;
+        var ultimoX = 0, ultimoY = 0, movio = false;
         lienzo.addEventListener("pointerdown", function (e) {
-            inst.arrastrando = true; ultimoX = e.clientX; ultimoY = e.clientY;
+            inst.arrastrando = true; movio = false; ultimoX = e.clientX; ultimoY = e.clientY;
             try { lienzo.setPointerCapture(e.pointerId); } catch (err) { }
         });
         lienzo.addEventListener("pointermove", function (e) {
             if (!inst.arrastrando) return;
+            if (Math.abs(e.clientX - ultimoX) > 2 || Math.abs(e.clientY - ultimoY) > 2) movio = true;
             inst.yaw += (e.clientX - ultimoX) * 0.01;
             if (e.pointerType === "mouse") inst.pitch = Math.max(0.05, Math.min(1.2, inst.pitch + (e.clientY - ultimoY) * 0.008));
             ultimoX = e.clientX; ultimoY = e.clientY;
@@ -701,6 +607,7 @@
         function soltar() { inst.arrastrando = false; inst.sucio = true; pedir(); }
         lienzo.addEventListener("pointerup", soltar);
         lienzo.addEventListener("pointercancel", soltar);
+        lienzo.addEventListener("click", function (e) { if (movio) e.stopPropagation(); });
         lienzo.addEventListener("pointerenter", function () { inst.pausado = true; });
         lienzo.addEventListener("pointerleave", function () { inst.pausado = false; pedir(); });
         lienzo.addEventListener("dblclick", function () { inst.yaw = -0.55; inst.pitch = 0.38; inst.sucio = true; pedir(); });
@@ -715,61 +622,57 @@
             if (usado) { e.preventDefault(); inst.sucio = true; pedir(); }
         });
 
-        // Las tarjetas de métricas se pueden tocar también con teclado.
-        bloque.querySelectorAll(".cards-grid > .dashboard-card").forEach(function (t) {
-            if (t.querySelector('.value[id^="var-"]')) t.setAttribute("tabindex", "0");
-        });
-
-        if (marcado[equipoId] !== undefined) marcar(bloque, marcado[equipoId]);
+        return {
+            marcarClave: function (claveVar, etiqueta, severidad, tarjetaDom) {
+                if (!claveVar) {
+                    inst.partes = null;
+                    inst.centroMarca = null;
+                    inst.tarjeta = null;
+                    inst.severidad = "normal";
+                    inst.visor.dataset.sev = "normal";
+                    leyenda.textContent = "";
+                    inst.sucio = true; pedir();
+                    return;
+                }
+                var def = inst.modelo.marcas[claveVar] || "*";
+                var caja = null;
+                if (def === "*") {
+                    inst.partes = "*";
+                } else {
+                    inst.partes = {};
+                    def.forEach(function (p) {
+                        inst.partes[p] = true;
+                        var c = inst.modelo.cajas[p];
+                        if (!c) return;
+                        caja = caja || { min: c.min.slice(), max: c.max.slice() };
+                        for (var k = 0; k < 3; k++) {
+                            caja.min[k] = Math.min(caja.min[k], c.min[k]);
+                            caja.max[k] = Math.max(caja.max[k], c.max[k]);
+                        }
+                    });
+                }
+                inst.centroMarca = caja
+                    ? [(caja.min[0] + caja.max[0]) / 2, (caja.min[1] + caja.max[1]) / 2, (caja.min[2] + caja.max[2]) / 2]
+                    : [0, 0, 0];
+                inst.tarjeta = tarjetaDom || null;
+                inst.severidad = severidad || "normal";
+                inst.visor.dataset.sev = inst.severidad;
+                leyenda.textContent = etiqueta || "";
+                inst.sucio = true; pedir();
+            },
+            actualizarSeveridadGlobal: function (sev) {
+                if (inst.tarjeta) return;
+                var s = sev || "normal";
+                if (s !== inst.severidad) {
+                    inst.severidad = s;
+                    inst.visor.dataset.sev = s;
+                    inst.partes = s === "normal" ? null : "*";
+                    inst.centroMarca = null;
+                    inst.sucio = true; pedir();
+                }
+            }
+        };
     }
 
-    function indiceDeTarjeta(tarjeta) {
-        var valor = tarjeta.querySelector(".value");
-        var m = valor && /^var-.+-(\d+)$/.exec(valor.id);
-        return m ? parseInt(m[1], 10) : null;
-    }
-
-    // Toque en una tarjeta o en una opción del selector «Métricas a mostrar».
-    contenedor.addEventListener("click", function (e) {
-        var bloque = e.target.closest ? e.target.closest(".equipo-bloque.dt3d-activo") : null;
-        if (!bloque) return;
-        var equipoId = idEquipo(bloque);
-
-        var chip = e.target.closest(".foco-chip");
-        if (chip) {
-            // metricas_foco.js ya actualizó aria-pressed en su propio manejador.
-            var idx = chip.dataset.chip;
-            if (idx === "todas") { marcar(bloque, null); return; }
-            idx = parseInt(idx, 10);
-            if (chip.getAttribute("aria-pressed") === "true") marcar(bloque, idx);
-            else if (marcado[equipoId] === idx) marcar(bloque, null);
-            return;
-        }
-
-        var tarjeta = e.target.closest(".cards-grid > .dashboard-card");
-        if (!tarjeta) return;
-        var indice = indiceDeTarjeta(tarjeta);
-        if (indice === null) return;
-        marcar(bloque, marcado[equipoId] === indice ? null : indice);
-    });
-
-    contenedor.addEventListener("keydown", function (e) {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        var tarjeta = e.target.closest ? e.target.closest(".cards-grid > .dashboard-card") : null;
-        if (!tarjeta || e.target !== tarjeta) return;
-        e.preventDefault();
-        tarjeta.click();
-    });
-
-    function procesar() {
-        contenedor.querySelectorAll(".equipo-bloque").forEach(montar);
-        // Si el selector oculta la tarjeta marcada, se retira la marca.
-        instancias.forEach(function (inst) {
-            if (inst.tarjeta && inst.tarjeta.style.display === "none") marcar(inst.bloque, null);
-        });
-    }
-
-    new MutationObserver(procesar).observe(contenedor, { childList: true });
-    setInterval(procesar, 2000);
-    procesar();
+    window.DT3D = { montarVisor: montarVisor };
 })();
